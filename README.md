@@ -1,4 +1,4 @@
-<!-- Budget 10 KB. The public face of the project: install, use, safety. Full? Move a chapter to docs/ and leave a line with a link. German development notes live in docs/entwicklung.md. -->
+<!-- Budget 10 KB. The public face of the project: install, use, safety. Full? Move a chapter to docs/ and leave a line with a link. -->
 # toolbag-mcp
 
 An [MCP](https://modelcontextprotocol.io) server for **Marmoset Toolbag 5**. It lets an MCP
@@ -29,36 +29,46 @@ the front for the duration of each call and hands the focus back afterwards (Win
 
 ## Install
 
-1. Install the plugin into Toolbag's user plugin folder
+The package is not on PyPI; this Git repository is the release channel.
+
+1. Install the `toolbag-mcp` command with uv:
+
+   ```
+   uv tool install git+https://github.com/LandgrafRalle/toolbag-mcp
+   ```
+
+   Pin a release by appending `@v0.1.0` to the URL; `uv tool upgrade toolbag-mcp` updates
+   later. Without installing, `uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp
+   toolbag-mcp ...` runs any command below; from a checkout, `uv run toolbag-mcp ...` does.
+
+2. Install the plugin into Toolbag's user plugin folder
    (`%LOCALAPPDATA%\Marmoset Toolbag 5\plugins\Toolbag MCP`), as a junction to the package
    or with `--copy` as a copy of the files:
 
    ```
-   uvx toolbag-mcp install
+   toolbag-mcp install
    ```
 
-   From a checkout: `uv run toolbag-mcp install`. Run this from a normal shell: packaged
-   (Microsoft Store) apps see `%LOCALAPPDATA%` redirected, and a junction made from inside
-   one of them is invisible to Toolbag.
+   Run this from a normal shell: packaged (Microsoft Store) apps see `%LOCALAPPDATA%`
+   redirected, and a junction made from inside one of them is invisible to Toolbag.
 
-2. In Toolbag: *Edit, Plugins, Refresh*, then *Plugins, Toolbag MCP*. A small window shows
+3. In Toolbag: *Edit, Plugins, Refresh*, then *Plugins, Toolbag MCP*. A small window shows
    the port, the call counter and the switch "Allow Python execution". Toolbag can also start
    the plugin directly: `toolbag.exe "<path to>\plugin\__main__.py"`.
 
-3. Register the server with your MCP client. `uvx toolbag-mcp register` prints the lines for
+4. Register the server with your MCP client. `toolbag-mcp register` prints the lines for
    your installation; for example for Claude Code:
 
    ```
-   claude mcp add --scope user --transport stdio toolbag -- uvx toolbag-mcp
+   claude mcp add --scope user --transport stdio toolbag -- toolbag-mcp
    ```
 
    Claude Desktop and Cursor take the same command in their JSON config:
-   `{"mcpServers": {"toolbag": {"command": "uvx", "args": ["toolbag-mcp"]}}}`.
-   Until the package is on PyPI, replace `uvx toolbag-mcp` with
-   `uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp toolbag-mcp` or with
-   `uv run --directory <checkout> toolbag-mcp`.
+   `{"mcpServers": {"toolbag": {"command": "toolbag-mcp", "args": []}}}`. If a client does
+   not find the command, give it the full path (`uv tool dir --bin` prints the folder) or
+   the `uvx --from ...` form.
 
-4. Check the setup: `uvx toolbag-mcp doctor`. It verifies the installed plugin, finds the
+5. Check the setup: `toolbag-mcp doctor`. It verifies the installed plugin, finds the
    Toolbag window, reads the plugin's state file and does one round trip.
 
 Another port: `install --port 18771` writes it to `~/.toolbag-mcp/config.json`; the plugin
@@ -88,8 +98,8 @@ value, `object_set_attributes` changes them, nested settings included (`{"lens":
 {"dofStop": 2.8}}` on a camera). In bake scenes, toggle visibility through
 `baker_set_visible` and `baker_isolate`, never on single meshes: that corrupts bakes.
 
-From the shell: `uvx toolbag-mcp actions` lists every action with its parameters,
-`uvx toolbag-mcp call scene.info` runs one.
+From the shell: `toolbag-mcp actions` lists every action with its parameters,
+`toolbag-mcp call scene.info` runs one.
 
 ## Safety
 
@@ -105,7 +115,7 @@ From the shell: `uvx toolbag-mcp actions` lists every action with its parameters
 
 ## Troubleshooting
 
-- `uvx toolbag-mcp doctor` first.
+- `toolbag-mcp doctor` first.
 - No answer: Toolbag must not sit behind a modal dialog; the plugin only runs while Toolbag
   has focus (the server takes care of that; `TOOLBAG_MCP_NO_FOCUS=1` turns it off).
 - A second Toolbag instance cannot bind the port; its plugin window says so.
@@ -124,9 +134,7 @@ uv build                # wheel with the plugin folder inside
 ```
 
 Test assets: `blender --background --factory-startup --python tests/make_test_assets.py --
-<folder>`. CI runs lint, tests and the build on Windows and Ubuntu. German notes on files,
-commands and the test procedure against a live Toolbag: [docs/entwicklung.md](docs/entwicklung.md);
-architecture and milestones: [docs/bauplan.md](docs/bauplan.md).
+<folder>`. CI runs lint, tests and the build on Windows and Ubuntu.
 
 ## License
 

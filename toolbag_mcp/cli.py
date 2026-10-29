@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -212,20 +213,27 @@ def cmd_actions(args) -> int:
     return 0
 
 
+REPO_URL = "https://github.com/LandgrafRalle/toolbag-mcp"
+
+
 def cmd_register(args) -> int:
-    """Print how to register this server with common MCP clients."""
+    """Print how to register this server with common MCP clients.
+
+    The package is distributed through its Git repository, not PyPI: a checkout is run with
+    ``uv run``, an installed command (``uv tool install git+...``) by its name, and anything
+    else through ``uvx --from git+...``.
+    """
     checkout = Path(__file__).resolve().parent.parent
     if (checkout / "pyproject.toml").is_file():
         command, cmd_args = "uv", ["run", "--directory", str(checkout), "toolbag-mcp"]
+    elif shutil.which("toolbag-mcp"):
+        command, cmd_args = "toolbag-mcp", []
     else:
-        command, cmd_args = "uvx", ["toolbag-mcp"]
-    quoted = " ".join('"%s"' % a if " " in a else a for a in cmd_args)
+        command, cmd_args = "uvx", ["--from", "git+" + REPO_URL, "toolbag-mcp"]
+    quoted = " ".join([command] + ['"%s"' % a if " " in a else a for a in cmd_args])
     _say("Claude Code (user scope):")
-    _say("  claude mcp add --scope user --transport stdio toolbag -- %s %s" % (command, quoted))
+    _say("  claude mcp add --scope user --transport stdio toolbag -- %s" % quoted)
     _say("  (long bakes: raise Claude Code's MCP_TOOL_TIMEOUT in its settings env block)")
-    if command == "uvx":
-        _say("  Not on PyPI yet? Use: uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp "
-             "toolbag-mcp")
     _say("")
     _say("Claude Desktop / Cursor (JSON):")
     _dump({"mcpServers": {"toolbag": {"command": command, "args": cmd_args}}})

@@ -40,7 +40,8 @@ dev = [
 
 # The Toolbag plugin lives in plugin/ at the repository root (it runs inside Toolbag, standard
 # library only). The wheel carries a copy at toolbag_mcp/plugin so that `toolbag-mcp install`
-# finds it after `uvx toolbag-mcp` as well as in a checkout.
+# finds it in an installed package (`uv tool install git+...`, `uvx --from git+...`) as well as
+# in a checkout.
 [tool.hatch.build.targets.wheel]
 packages = ["toolbag_mcp"]
 
