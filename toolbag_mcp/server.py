@@ -471,7 +471,8 @@ async def baker_bake_to(path: str, maps: list[str] | None = None, width: int = 2
 
 
 @server.tool(annotations=READ)
-async def baker_map_path(map_name: str, tile_suffix: str = "", baker: Ref | None = None) -> dict[str, Any]:
+async def baker_map_path(map_name: str, tile_suffix: str = "",
+                         baker: Ref | None = None) -> dict[str, Any]:
     """Toolbag's own output path for a map by display name ('Normals', 'Ambient Occlusion',
     'Height'), optionally for a texture set name or UDIM tile ('1001')."""
     return await _call("baker.map_path",
