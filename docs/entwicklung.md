@@ -22,7 +22,7 @@ an Toolbag testet**. Was gerade offen ist, steht in `notes/STATUS.md`; fuer Nutz
 | `docs/bauplan.md` | Zielbild, Architektur, Werkzeugfamilien, Meilensteine mit Abnahme |
 | `docs/pitfalls.md` | Belegte Fallen der Toolbag-API und des Plugin-Betriebs (englisch) |
 | `CHANGELOG.md` | Was je Version dazukam (englisch, Keep a Changelog) |
-| `.github/workflows/ci.yml` | CI bei jedem Push: `uv sync --locked`, Ruff, pytest, `uv build` auf Windows und Ubuntu mit Python 3.10 und 3.12 |
+| `.github/workflows/ci.yml` | CI bei jedem Push: `uv sync --locked`, Ruff, pytest, `uv build` auf Windows und Ubuntu mit Python 3.10 und 3.12; ein roter Lauf: `gh run list`, dann `gh run view --log-failed` |
 | `pyproject.toml`, `uv.lock` | Paket (hatchling; `plugin/` wandert als `toolbag_mcp/plugin` ins Wheel), Abhaengigkeit `mcp` 2.x, Dev-Werkzeuge pytest und ruff |
 
 ---

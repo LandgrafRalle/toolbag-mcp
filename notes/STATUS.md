@@ -57,5 +57,3 @@ umhaengen, Tag und GitHub-Release, Repo oeffentlich schalten, `register` und REA
 - `mcp`-SDK auf 2.x (`<3`) gepinnt, Python ab 3.10; Toolbags Python ist 3.12.
 - Lange Bakes: reisst ein Werkzeugaufruf das Timeout des Clients, in Claude Code
   `MCP_TOOL_TIMEOUT` hochsetzen.
-- CI laeuft bei jedem Push auf GitHub (Windows und Ubuntu, Python 3.10 und 3.12); ein roter
-  Lauf: `gh run list` und `gh run view --log-failed`.
