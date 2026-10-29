@@ -1,84 +1,133 @@
-<!-- Budget 10 KB. Voll? Dann zieht ein Kapitel nach docs/<thema>.md um und hier bleibt
-     eine Zeile mit Verweis zurueck, samt Ausloeser, WANN man sie liest. -->
-# Toolbag-MCP
+<!-- Budget 10 KB. The public face of the project: install, use, safety. Full? Move a chapter to docs/ and leave a line with a link. German development notes live in docs/entwicklung.md. -->
+# toolbag-mcp
 
-MCP-Server fuer Marmoset Toolbag 5. Ein kleines Plugin in Toolbag nimmt Auftraege ueber einen
-lokalen Port an und fuehrt sie auf Toolbags Hauptthread aus; ein Python-Server aussen bietet
-sie einem MCP-Client (Claude Code, Claude Desktop, Cursor) als typisierte Werkzeuge an: Szene
-laden, untersuchen und exportieren, Objekte und Auswahl, Materialien samt Texturen und
-Cutout-Masken, Bake-Projekte anlegen, einstellen und backen, Toolbag beenden. Freier
-Python-Code laeuft nur, wenn der Nutzer es im Plugin-Fenster erlaubt.
+An [MCP](https://modelcontextprotocol.io) server for **Marmoset Toolbag 5**. It lets an MCP
+client such as Claude Code, Claude Desktop or Cursor drive a running Toolbag through typed
+tools: inspect and change the scene, materials and textures, set up and run bake projects,
+place lights and cameras, render images. Free Python runs only when you allow it in Toolbag.
 
-Diese Datei beantwortet **welche Datei was ist und wie man das Projekt startet**.
-Was gerade offen ist, steht in `notes/STATUS.md`. Zum ersten Release (Meilenstein M3) wird
-sie englisch und zur Anleitung fuer fremde Nutzer.
+> Early stage: built and tested against Toolbag 5.0.2 on Windows. Not affiliated with
+> Marmoset LLC; "Marmoset" and "Toolbag" are their trademarks.
 
-**Stand:** Meilenstein M2 (29.10.2026): Plugin, Server, alle sieben Werkzeugfamilien
-(Diagnose, Szene, Materialien, Baker, Licht/Sky/Fog/Kamera, Render/Timeline, Python mit
-Haken; 90 Werkzeuge, 5 Ressourcen), Installer, `doctor`, Tests ohne Toolbag gegen ein
-nachgebautes `mset`. Abnahme an Toolbag 5.0.2.2 bestanden. Was als Naechstes kommt (M3,
-Paketierung und Release): `docs/bauplan.md`, Abschnitt Meilensteine.
+## How it works
 
----
+Two parts, one package:
 
-## Dateikarte
+- **A Toolbag plugin** (`plugin/`) that runs inside Toolbag. It listens on `127.0.0.1`
+  (port 18770 by default) and executes named actions on Toolbag's main thread.
+- **The MCP server** (`toolbag_mcp`) that runs outside Toolbag, talks to the plugin over
+  HTTP and exposes the actions as MCP tools over stdio.
 
-| Datei | Was sie tut |
+Toolbag only runs plugin code while its window has focus, so the server brings Toolbag to
+the front for the duration of each call and hands the focus back afterwards (Windows).
+
+## Requirements
+
+- Marmoset Toolbag 5.0.x on Windows (tested with 5.0.2.2). Toolbag 4 and macOS are untested.
+- Python 3.10 or newer and [uv](https://docs.astral.sh/uv/) for the server. The plugin
+  needs nothing beyond Toolbag's own Python.
+
+## Install
+
+1. Install the plugin into Toolbag's user plugin folder
+   (`%LOCALAPPDATA%\Marmoset Toolbag 5\plugins\Toolbag MCP`), as a junction to the package
+   or with `--copy` as a copy of the files:
+
+   ```
+   uvx toolbag-mcp install
+   ```
+
+   From a checkout: `uv run toolbag-mcp install`. Run this from a normal shell: packaged
+   (Microsoft Store) apps see `%LOCALAPPDATA%` redirected, and a junction made from inside
+   one of them is invisible to Toolbag.
+
+2. In Toolbag: *Edit, Plugins, Refresh*, then *Plugins, Toolbag MCP*. A small window shows
+   the port, the call counter and the switch "Allow Python execution". Toolbag can also start
+   the plugin directly: `toolbag.exe "<path to>\plugin\__main__.py"`.
+
+3. Register the server with your MCP client. `uvx toolbag-mcp register` prints the lines for
+   your installation; for example for Claude Code:
+
+   ```
+   claude mcp add --scope user --transport stdio toolbag -- uvx toolbag-mcp
+   ```
+
+   Claude Desktop and Cursor take the same command in their JSON config:
+   `{"mcpServers": {"toolbag": {"command": "uvx", "args": ["toolbag-mcp"]}}}`.
+   Until the package is on PyPI, replace `uvx toolbag-mcp` with
+   `uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp toolbag-mcp` or with
+   `uv run --directory <checkout> toolbag-mcp`.
+
+4. Check the setup: `uvx toolbag-mcp doctor`. It verifies the installed plugin, finds the
+   Toolbag window, reads the plugin's state file and does one round trip.
+
+Another port: `install --port 18771` writes it to `~/.toolbag-mcp/config.json`; the plugin
+window has a port field too. The plugin writes its port and per-start token to
+`~/.toolbag-mcp/plugin.json`, which the server reads for every call.
+
+## Tools
+
+Tool names as the client sees them, by family:
+
+| Family | Tools |
 |---|---|
-| `plugin/__main__.py` | Das Toolbag-Plugin: HTTP-Server im Nebenthread, Warteschlange auf `onPeriodicUpdate`, Fenster mit Port, Python-Haken, Zaehler und Stop; schreibt Port und Token nach `~\.toolbag-mcp\plugin.json` |
-| `plugin/tbmcp_actions.py` | Die benannten Aktionen (`status`, `scene.*`, `object.*`, `selection.*`, `material.*`, `baker.*`, `light.*`, `sky.*`, `fog.*`, `camera.*`, `render.*`, `timeline.*`, `python.exec`, `toolbag.quit`) mit Parameterpruefung und den eingebauten Schutzregeln; `object.attributes` und `object.set_attributes` greifen jedes Attribut jedes Objekts |
-| `toolbag_mcp/server.py` | Der MCP-Server: je Aktion ein Werkzeug mit Typen, Beschreibung, Annotation und Ausgabeschema, fuenf Ressourcen, Transport stdio |
-| `toolbag_mcp/client.py` | HTTP-Client zum Plugin; liest Port und Token bei jedem Aufruf aus `plugin.json` |
-| `toolbag_mcp/focus.py` | Holt Toolbag fuer die Dauer eines Aufrufs nach vorn und gibt den Fokus zurueck (Windows) |
-| `toolbag_mcp/install.py` | Junction oder Kopie des Plugins in Toolbags Plugin-Ordner, `verify`, Suche nach fremden Plugins mit Update-Callback |
-| `toolbag_mcp/cli.py` | Kommando `toolbag-mcp`: `serve` (Standard), `install`, `uninstall`, `verify`, `doctor`, `call`, `actions`, `register` |
-| `tests/` | pytest ohne Toolbag: `fake_mset.py` baut `mset` nach (Szene, Materialien, Baker, Licht, Kamera, Sky, Fog, Render, Timeline, mit den belegten Fallen), `test_actions.py` prueft die Aktionen dagegen, `test_plugin_main.py` den Plugin-Kern ueber echtes HTTP, `test_server.py` die MCP-Schicht in-process; `make_test_assets.py` erzeugt mit Blender die neutralen Testdaten |
-| `docs/bauplan.md` | Zielbild, Architektur, Werkzeugfamilien, Meilensteine mit Abnahme |
-| `docs/pitfalls.md` | Belegte Fallen der Toolbag-API und des Plugin-Betriebs (englisch); lesen vor jedem Code gegen `mset` |
-| `pyproject.toml`, `uv.lock` | Paket (hatchling, `plugin/` wandert mit ins Wheel), Abhaengigkeit `mcp` 2.x, Dev-Werkzeuge pytest und ruff |
+| Diagnostics | `status`, `capabilities`, `preferences_get`, `preferences_set` |
+| Scene and objects | `scene_info`, `scene_new`, `scene_load`, `scene_save`, `scene_list_objects`, `scene_tree`, `scene_import_model`, `scene_export`, `scene_bounds`, `object_get`, `object_find`, `object_rename`, `object_duplicate`, `object_delete`, `object_group`, `object_set_parent`, `object_set_visible`, `object_set_transform`, `object_attributes`, `object_set_attributes`, `object_create`, `selection_get`, `selection_set`, `selection_clear`, `camera_frame`, `mesh_set_backfaces` |
+| Materials | `material_list`, `material_get`, `material_create`, `material_duplicate`, `material_delete`, `material_assign`, `material_set_group`, `material_set_subroutine`, `material_set_field`, `material_set_texture`, `material_set_cutout`, `material_import`, `material_export` |
+| Baker | `baker_list`, `baker_get`, `baker_create`, `baker_add_group`, `baker_quick_load`, `baker_set_settings`, `baker_set_maps`, `baker_set_cage`, `baker_set_visible`, `baker_isolate`, `baker_bake`, `baker_bake_psd`, `baker_bake_to`, `baker_map_path`, `baker_load_preset`, `baker_save_preset`, `baker_set_texture_set`, `baker_set_udim_tile`, `baker_replace_low` |
+| Lights, sky, fog, cameras | `light_list`, `light_create`, `sky_get`, `sky_set`, `sky_load`, `sky_save`, `sky_set_background_image`, `sky_compute_procedural`, `fog_get`, `fog_set`, `camera_list`, `camera_get`, `camera_create`, `camera_set`, `camera_set_active`, `camera_post_effect_file` |
+| Render and timeline | `render_get`, `render_set`, `render_set_cameras`, `render_set_passes`, `render_image`, `render_images`, `render_videos`, `render_export_viewer`, `timeline_get`, `timeline_set` |
+| Python and lifecycle | `execute_python` (only while allowed in the plugin window), `toolbag_quit` |
 
----
+Resources: `toolbag://scene`, `toolbag://materials`, `toolbag://baker`, `toolbag://cameras`,
+`toolbag://render`.
 
-## Starten und bauen
+Objects are referenced by uid or exact name; `scene_tree`, `scene_list_objects` and
+`object_find` give them. `object_attributes` shows every setting of any object with its
+value, `object_set_attributes` changes them, nested settings included (`{"lens":
+{"dofStop": 2.8}}` on a camera). In bake scenes, toggle visibility through
+`baker_set_visible` and `baker_isolate`, never on single meshes: that corrupts bakes.
 
-| Ich will | Aufruf |
-|---|---|
-| Abhaengigkeiten einrichten | `uv sync` |
-| Plugin in Toolbag einhaengen | `uv run toolbag-mcp install`, danach in Toolbag *Edit, Plugins, Refresh* und *Plugins, Toolbag MCP* |
-| Plugin ohne Menue starten | `"C:\Program Files\Marmoset\Toolbag 5\toolbag.exe" "C:\Dev\toolbag-mcp\plugin\__main__.py"` |
-| Alles pruefen | `uv run toolbag-mcp doctor` |
-| Eine Aktion direkt aufrufen | `uv run toolbag-mcp call scene.info`, `uv run toolbag-mcp call baker.bake_to "{\"path\": \"C:/tmp/t.png\"}"` |
-| Aktionen mit Parametern auflisten | `uv run toolbag-mcp actions` |
-| Den MCP-Server fuer einen Client | `uv run toolbag-mcp` (stdio); wie man ihn registriert: `uv run toolbag-mcp register` |
-| Tests und Lint | `uv run pytest`, `uv run ruff check .` |
-| Testdaten neu erzeugen | `blender --background --factory-startup --python tests/make_test_assets.py -- <ordner>` |
+From the shell: `uvx toolbag-mcp actions` lists every action with its parameters,
+`uvx toolbag-mcp call scene.info` runs one.
 
-⚠️ Nie zwei Toolbag-Instanzen mit dem Plugin laufen lassen: die zweite kann den Port nicht
-binden und meldet das im Fenster. Beenden ueber das Werkzeug `toolbag_quit` oder den Knopf
-*Stop*. Nie zusammen mit einem anderen Plugin starten, das `onPeriodicUpdate` setzt;
-`doctor` nennt die installierten.
+## Safety
 
-⚠️ `install` aus einer normalen Shell ausfuehren. Aus einer Store-App heraus (etwa der
-Claude-Desktop-App) landet die Junction in deren umgeleiteter Kopie von `%LOCALAPPDATA%`,
-und Toolbag sieht sie nie (`docs/pitfalls.md`).
+- The plugin listens on the loopback address only. Every request needs a marker header, the
+  token generated at this plugin start and a `Host` of `127.0.0.1` or `localhost`. CORS
+  preflights are never answered, so a web page cannot reach it.
+- `execute_python` runs only while "Allow Python execution" is ticked in the plugin window.
+  The switch is off at every start and is not persisted.
+- Everything else is a fixed, validated action. Actions write files only where you tell
+  them to. `scene_new`, `scene_load` and `toolbag_quit` drop unsaved changes without a
+  prompt; clients see them flagged as destructive.
+- The server talks to nothing but the plugin's loopback port.
 
----
+## Troubleshooting
 
-## Voraussetzungen
+- `uvx toolbag-mcp doctor` first.
+- No answer: Toolbag must not sit behind a modal dialog; the plugin only runs while Toolbag
+  has focus (the server takes care of that; `TOOLBAG_MCP_NO_FOCUS=1` turns it off).
+- A second Toolbag instance cannot bind the port; its plugin window says so.
+- Never run Toolbag MCP together with another plugin that sets `onPeriodicUpdate`
+  (`doctor` lists them): Toolbag then runs neither.
+- Verified traps of Toolbag's Python API, with the differences between 5.0.2 and the docs:
+  [docs/pitfalls.md](docs/pitfalls.md).
 
-- Marmoset Toolbag 5.0x, geprueft mit 5.0.2.2; 4.0x nach Moeglichkeit, ungetestet; macOS
-  ungetestet (die Fokus-Handhabung ist Windows-only, der Rest sollte laufen).
-- Python 3.10 oder neuer mit `uv` fuer den Server. Das Plugin laeuft in Toolbags eigenem
-  Python 3.12 und braucht keine Zusatzpakete.
-- Toolbags Fenster darf waehrend eines Aufrufs nicht hinter einem modalen Dialog stecken.
+## Development
 
----
+```
+uv sync
+uv run pytest           # tests against a fake mset, no Toolbag needed
+uv run ruff check .
+uv build                # wheel with the plugin folder inside
+```
 
-## Was ausserhalb dieses Repos liegt
+Test assets: `blender --background --factory-startup --python tests/make_test_assets.py --
+<folder>`. CI runs lint, tests and the build on Windows and Ubuntu. German notes on files,
+commands and the test procedure against a live Toolbag: [docs/entwicklung.md](docs/entwicklung.md);
+architecture and milestones: [docs/bauplan.md](docs/bauplan.md).
 
-| Ort | Was | Warum dort |
-|---|---|---|
-| `%LOCALAPPDATA%\Marmoset Toolbag 5\plugins\Toolbag MCP` | Junction auf `plugin/`, angelegt von `toolbag-mcp install` | Toolbag laedt Nutzer-Plugins nur von dort |
-| `~\.toolbag-mcp\plugin.json` | Port, Token und Prozess-ID des laufenden Plugins; verschwindet beim Stop | nie unter `%LOCALAPPDATA%`, Store-Apps sehen dort eine umgeleitete Kopie |
-| `~\.toolbag-mcp\config.json` | optional `{"port": N}` fuer einen anderen Port (`install --port N`) | gleicher Grund |
-| `~\.toolbag-mcp\test\` | Testdaten der Abnahme: `part_bake.fbx`, `part_low_v2.fbx`, `mask.png`, `test_scene.tbscene`, Bake-Ausgaben | neutrale Daten, erzeugt mit `tests/make_test_assets.py`; nicht im Repo |
+## License
+
+Not chosen yet; the repository stays private until it is.

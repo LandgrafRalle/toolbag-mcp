@@ -14,7 +14,10 @@ dependencies = [
 ]
 keywords = ["marmoset", "toolbag", "mcp", "model-context-protocol", "baking", "3d"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Operating System :: Microsoft :: Windows",
     "Topic :: Multimedia :: Graphics :: 3D Rendering",
 ]
@@ -24,6 +27,8 @@ toolbag-mcp = "toolbag_mcp.cli:main"
 
 [project.urls]
 Repository = "https://github.com/LandgrafRalle/toolbag-mcp"
+Issues = "https://github.com/LandgrafRalle/toolbag-mcp/issues"
+Changelog = "https://github.com/LandgrafRalle/toolbag-mcp/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
@@ -41,7 +46,8 @@ packages = ["toolbag_mcp"]
 "plugin" = "toolbag_mcp/plugin"
 
 [tool.hatch.build.targets.sdist]
-include = ["toolbag_mcp", "plugin", "README.md", "pyproject.toml"]
+include = ["toolbag_mcp", "plugin", "tests", "docs/pitfalls.md", "README.md", "CHANGELOG.md",
+           "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 line-length = 100

@@ -21,23 +21,23 @@ das Fenster ansehen (Port, Haken „Allow Python execution", Calls, Stop).
 **Warum es haengt:** Claude kann keinen Menueeintrag klicken; die Abnahme lief mit dem Plugin
 als Startskript. Die Junction liegt seit dem 29.10.2026 im Plugin-Ordner.
 
-### Lizenz, Autorenname, Zeitpunkt der Veroeffentlichung: DU
-**Was fehlt:** deine Entscheidung zur Lizenz (Vorschlag MIT), zum Autorennamen im Repo und
-dazu, wann das Repo oeffentlich wird.
-**Warum es haengt:** noetig erst zum ersten Release (M3); bis dahin bleibt das Repo privat.
-**Einzelheiten:** `docs/bauplan.md`, Abschnitt „Zielbild und Grenzen"
+### Lizenz, Autorenname, Veroeffentlichung, PyPI: DU
+**Was fehlt:** deine Entscheidung zur Lizenz (Vorschlag MIT), zum Autorennamen im Repo, wann
+das Repo oeffentlich wird, ob es auf PyPI soll (Konto noetig), und ob die deutschen internen
+Dateien (`CLAUDE.md`, `docs/bauplan.md`, `docs/entwicklung.md`, diese Datei) im oeffentlichen
+Repo bleiben.
+**Warum es haengt:** alles andere fuer den Release ist vorbereitet; ohne Lizenz kein Release.
+**Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ---
 
 ## Kann erledigt werden
 
-### Meilenstein M3: Paketierung und Release
-**Was fehlt:** Paketierung fuer `uvx toolbag-mcp` (Wheel mit `plugin/` pruefen, Versionsnummer,
-`register` fuer das veroeffentlichte Paket), README englisch (Install, Registrierung je
-Client, Fallen, Sicherheit), LICENSE und CHANGELOG, CI mit Lint und Tests, Release privat
-zu oeffentlich auf Ansage.
-**Warum es haengt:** Lizenz, Autorenname und Zeitpunkt entscheidet der Nutzer (oben).
-**Einzelheiten:** `docs/bauplan.md`, Meilensteine
+### Release 0.1.0, sobald oben entschieden ist
+**Was fehlt:** LICENSE und die Felder in `pyproject.toml`, Version 0.1.0, CHANGELOG
+umhaengen, Tag und GitHub-Release, Repo oeffentlich schalten, `register` und README auf
+`uvx toolbag-mcp` umstellen, Registrierung in Claude Code vom Checkout auf das Paket.
+**Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ### Nachgelagert aus M1 und M2
 - Automatischer Re-Bake nach `baker.replace_low` verstehen: die Ausgaben wurden ohne
@@ -57,3 +57,5 @@ zu oeffentlich auf Ansage.
 - `mcp`-SDK auf 2.x (`<3`) gepinnt, Python ab 3.10; Toolbags Python ist 3.12.
 - Lange Bakes: reisst ein Werkzeugaufruf das Timeout des Clients, in Claude Code
   `MCP_TOOL_TIMEOUT` hochsetzen.
+- CI laeuft bei jedem Push auf GitHub (Windows und Ubuntu, Python 3.10 und 3.12); ein roter
+  Lauf: `gh run list` und `gh run view --log-failed`.

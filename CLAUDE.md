@@ -4,12 +4,11 @@
 # Toolbag-MCP
 
 MCP-Server fuer **Marmoset Toolbag 5**: ein Plugin in Toolbag nimmt Auftraege an, ein
-Python-Server aussen bietet sie Claude (Code, Desktop, Cursor) als feste Werkzeuge an: Szene,
-Materialien, Baker, Licht, Render. Freier Python-Code laeuft nur, wenn der Nutzer den Haken im
-Plugin setzt. Nachfolger der privaten Bruecke `X:\eg\Tools\toolbag-bridge\` (Unreal Tools).
-Soll **oeffentlich auf GitHub** erscheinen, ist bis zum ersten Release privat. Stand M2
-(29.10.2026): alle sieben Werkzeugfamilien laufen (90 Werkzeuge), Tests ohne Toolbag; M3
-(Paketierung, englisches README, Release) folgt.
+Python-Server aussen bietet sie MCP-Clients als 90 feste Werkzeuge an (Szene, Materialien,
+Baker, Licht, Kamera, Render). Freier Python-Code nur mit Haken im Plugin-Fenster.
+Nachfolger der privaten Bruecke in Unreal Tools. Soll **oeffentlich auf GitHub** erscheinen,
+ist bis zum ersten Release privat. Stand 29.10.2026: M3 vorbereitet (Wheel, englisches README,
+CI); offen sind Lizenz, Autorenname und der Release selbst.
 
 ## Wo steht was
 
@@ -17,37 +16,33 @@ Diese Datei ist nur der Wegweiser, hier wird kein Inhalt wiederholt.
 
 | Quelle | Zustaendig fuer |
 |---|---|
-| `docs/bauplan.md` | Zielbild, Architektur (Plugin und Server), die sieben Werkzeugfamilien in Baureihenfolge, belegte Fallen der Toolbag-API, Uebernahmeliste aus der Bruecke, Meilensteine mit Abnahme. **Lesen, bevor Code entsteht oder ein Werkzeug dazukommt** |
-| `docs/pitfalls.md` | Belegte Fallen der Toolbag-API und des Plugin-Betriebs. **Lesen, bevor Code gegen `mset` entsteht oder ein Toolbag-Verhalten raetselhaft ist** |
-| `README.md` | Dateikarte, Aufrufe (`install`, `doctor`, `call`, Tests), Voraussetzungen; wird zu M3 englisch und zur oeffentlichen Anleitung |
+| `docs/bauplan.md` | Zielbild, Architektur, Werkzeugfamilien, Meilensteine mit Abnahme. **Lesen, bevor Code entsteht oder ein Werkzeug dazukommt** |
+| `docs/pitfalls.md` | Belegte Fallen der Toolbag-API und des Plugin-Betriebs (englisch). **Lesen, bevor Code gegen `mset` entsteht oder ein Toolbag-Verhalten raetselhaft ist** |
+| `docs/entwicklung.md` | Dateikarte, Aufrufe, Test-Ablauf an Toolbag, Release-Ablauf, was ausserhalb des Repos liegt. **Lesen, bevor Toolbag zum Testen gestartet wird** |
+| `README.md` | Englische Anleitung fuer Nutzer (Install, Registrierung, Werkzeuge, Sicherheit); geht mit dem Paket hinaus |
 | `notes/STATUS.md` | Was gerade **offen** ist, vor der Arbeit lesen. Erledigtes wird geloescht, die Historie steht in Git |
-| `X:\eg\Tools\toolbag-bridge\LIESMICH-api.md` | Belege zu den Fallen, bis sie in `docs/pitfalls.md` stehen (M2). Nur lesen, dort nichts aendern |
-| Projektgedaechtnis | Vorlieben und Rueckmeldungen des Nutzers; nichts Offenes, keine Entscheidung zum Repo (die gehoert nach `docs/`) |
+| `CHANGELOG.md` | Was je Version dazukam; beim Release den Abschnitt „Unreleased" umhaengen |
+| Projektgedaechtnis | Vorlieben des Nutzers; nichts Offenes, keine Entscheidung zum Repo (die gehoert nach `docs/`) |
 | `~/.claude/DOKU-STANDARD.md` | Wie hier dokumentiert wird. Lesen, bevor eine Doku-Datei angelegt, aufgeteilt oder umgebaut wird |
 
 ## Randbedingungen
 
 - **Wird oeffentlich.** Nichts aus dem Firmenkontext ins Repo: keine Goliath-Namen, keine
-  `X:\GameAssets`-Pfade, keine Skew-Masken, kein `fix_ao`. Jede aus der Bruecke uebernommene
-  Datei vorher auf Firmenpfade und Namen pruefen. Name ohne „Marmoset" (Marke von Marmoset LLC).
-- **Entscheidungen des Nutzers, nicht meine:** Lizenz (Vorschlag MIT), Autorenname, Zeitpunkt
-  der Veroeffentlichung, endgueltiger Projektname. Bis dahin bleibt das Repo privat.
-- **Nur ein Plugin darf `onPeriodicUpdate` setzen.** Das Plugin dieses Projekts nie zusammen
-  mit „Claude Bridge" oder „Skew Masks" in Toolbag laufen lassen; vor jedem Test die Bruecke
-  aus. Die Bruecke in Unreal Tools bleibt unveraendert, bis das neue Plugin den Ketten-Ablauf
-  beherrscht (Abnahme M1 im Bauplan); der Umstieg dort ist Sache des Unreal-Tools-Chats.
-- **Freier Python-Code nur mit Freigabe des Nutzers:** der Haken im Plugin-Fenster ist
-  standardmaessig aus und nicht persistent. Der Server darf ihn nie umgehen oder setzen.
-- **Testszenen sind Kopien.** Nie eine Szene in `X:\GameAssets` speichern oder ueberschreiben.
-  Testdaten liegen in `~\.toolbag-mcp\test\`, nicht unter `%TEMP%`: AppData ist fuer die
-  Claude-App umgeleitet, Toolbag saehe andere Dateien.
-- **Toolbag zum Testen:** eine Instanz, gestartet mit dem Plugin als Skriptargument (README),
-  beendet mit `toolbag.quit`; nie eine zweite starten, solange eine laeuft. `install` und
-  alles, was in `%LOCALAPPDATA%` schreibt, nur von aussen (WMI-Prozess), sonst landet es in
-  der Container-Kopie der Claude-App.
+  `X:\GameAssets`-Pfade, keine Skew-Masken, kein `fix_ao`; uebernommene Dateien vorher
+  pruefen. Name ohne „Marmoset" (Marke von Marmoset LLC).
+- **Entscheidungen des Nutzers:** Lizenz (Vorschlag MIT), Autorenname, Zeitpunkt der
+  Veroeffentlichung, PyPI ja oder nein. Bis dahin bleibt das Repo privat, ohne LICENSE-Datei.
+- **Nur ein Plugin darf `onPeriodicUpdate` setzen:** nie zusammen mit „Claude Bridge" oder
+  „Skew Masks" starten. Die Bruecke in Unreal Tools bleibt, bis der Unreal-Tools-Chat umsteigt.
+- **Freier Python-Code nur mit Freigabe des Nutzers:** der Haken ist standardmaessig aus und
+  nicht persistent; der Server darf ihn nie umgehen.
+- **Testszenen sind Kopien,** nie in `X:\GameAssets` speichern. Testdaten liegen in
+  `~\.toolbag-mcp\test\`, nicht unter `%TEMP%` (AppData ist fuer die Claude-App umgeleitet).
+- **Toolbag zum Testen:** eine Instanz, mit dem Plugin als Skriptargument gestartet, mit
+  `toolbag.quit` beendet; `install` und alles unter `%LOCALAPPDATA%` nur von aussen (WMI).
+  Ablauf: `docs/entwicklung.md`.
 
 ## Doku-Pflege
 
 Neues Wissen wird nach `~/.claude/DOKU-STANDARD.md` einsortiert, nicht hier angehaengt.
-Waechst diese Datei ueber 4 KB, ist ein Thema reif fuer eine eigene Datei unter `docs/`.
 Struktur-Fragen ueber dieses Projekt hinaus gehoeren in einen Chat aus `C:\Dev`.

@@ -223,6 +223,9 @@ def cmd_register(args) -> int:
     _say("Claude Code (user scope):")
     _say("  claude mcp add --scope user --transport stdio toolbag -- %s %s" % (command, quoted))
     _say("  (long bakes: raise Claude Code's MCP_TOOL_TIMEOUT in its settings env block)")
+    if command == "uvx":
+        _say("  Not on PyPI yet? Use: uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp "
+             "toolbag-mcp")
     _say("")
     _say("Claude Desktop / Cursor (JSON):")
     _dump({"mcpServers": {"toolbag": {"command": command, "args": cmd_args}}})
