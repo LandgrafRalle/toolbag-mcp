@@ -141,8 +141,12 @@ Namen pruefen.
   Uebersicht, Quick Load, Cage, Bake, Alpha Map als Cutout, Rueckseiten, Low tauschen,
   Probe-Bake, Speichern und Laden) lief ueber die Aktionen an einer neutralen Testszene,
   „Claude Bridge" war aus. Belege und Abweichungen von der Referenz: `pitfalls.md`.
-- **M2:** Familien 5 bis 7, Ressourcen, Tests gegen ein `fake_mset` (ohne Toolbag), Doku der
-  Fallen, `doctor`.
+- **M2, erledigt am 29.10.2026:** Familien 5 bis 7 (dazu die generischen Griffe
+  `object.attributes`, `object.set_attributes`, `object.create` fuer jedes Objekt), fuenf
+  Ressourcen, `tests/fake_mset.py` mit Tests der Aktionen und des Plugin-Kerns ueber HTTP,
+  `docs/pitfalls.md`, `doctor` erkennt Doppelinstanzen und fremde Portbelegung. Abnahme an
+  Toolbag: Licht, Kamera mit Tiefenschaerfe, Sky laden, Fog, Render-Einstellungen, Bild
+  rendern, Timeline.
 - **M3:** Paketierung fuer `uvx`, README englisch (Install, Registrierung je Client, Fallen,
   Sicherheit), LICENSE, CHANGELOG, CI (Lint, Tests), Release privat → oeffentlich auf Ansage.
 - **Danach in Unreal Tools** (`X:\eg\Tools\notes\STATUS-toolbag.md`): Junction „Claude Bridge" raus,

@@ -31,18 +31,24 @@ dazu, wann das Repo oeffentlich wird.
 
 ## Kann erledigt werden
 
-### Meilenstein M2
-**Was fehlt:** Werkzeugfamilien 5 bis 7 (Licht, Sky, Fog, Kamera; Render; `execute_python`
-ist schon da), ein vollstaendigeres `fake_mset` fuer Tests der Aktionen ohne Toolbag,
-`docs/pitfalls.md` fortschreiben, `doctor` um die Punkte aus der Abnahme erweitern.
-**Einzelheiten:** `docs/bauplan.md`, Werkzeugfamilien und Meilensteine
+### Meilenstein M3: Paketierung und Release
+**Was fehlt:** Paketierung fuer `uvx toolbag-mcp` (Wheel mit `plugin/` pruefen, Versionsnummer,
+`register` fuer das veroeffentlichte Paket), README englisch (Install, Registrierung je
+Client, Fallen, Sicherheit), LICENSE und CHANGELOG, CI mit Lint und Tests, Release privat
+zu oeffentlich auf Ansage.
+**Warum es haengt:** Lizenz, Autorenname und Zeitpunkt entscheidet der Nutzer (oben).
+**Einzelheiten:** `docs/bauplan.md`, Meilensteine
 
-### Nachgelagert aus M1
+### Nachgelagert aus M1 und M2
 - Automatischer Re-Bake nach `baker.replace_low` verstehen: die Ausgaben wurden ohne
   `bake()` neu geschrieben (`docs/pitfalls.md`, Baker).
 - Testdaten: `part_low_v2` mit nicht ueberlappenden UVs erzeugen, damit der Low-Tausch im
   Bake sichtbar wird (`tests/make_test_assets.py`).
 - Toolbag 4 ungetestet; `getMapPath` gibt es erst ab 5.03 (Rueckfall rechnet den Pfad).
+- `render.videos` und `render.export_viewer` sind nur gegen das nachgebaute `mset` geprueft,
+  nicht an Toolbag (brauchen eine Animation bzw. dauern lang).
+- `shadow catcher` und `backdrop` nur ueber `object.create` und `object.set_attributes`
+  erreichbar, ohne eigene Werkzeuge; reicht, solange niemand mehr braucht.
 
 ---
 

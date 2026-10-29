@@ -10,7 +10,14 @@ import sys
 from pathlib import Path
 
 from . import __version__, focus, install
-from .client import PluginError, PluginUnavailable, ToolbagClient, is_listening, read_state
+from .client import (
+    DEFAULT_PORT,
+    PluginError,
+    PluginUnavailable,
+    ToolbagClient,
+    is_listening,
+    read_state,
+)
 
 
 def _say(text: str = "") -> None:
@@ -109,8 +116,11 @@ def cmd_doctor(args) -> int:
         warn("could not inspect Toolbag's plugin folder: %s" % exc)
 
     if focus.available():
-        hwnd = focus.find_toolbag()
-        if hwnd:
+        windows = focus.find_toolbag_windows()
+        if len(windows) > 1:
+            fail("%d Toolbag windows: several instances cannot share the plugin port, close "
+                 "all but one" % len(windows))
+        elif windows:
             ok("Toolbag window found (focus handling active)")
         else:
             warn("no Toolbag window found: is Toolbag running?")
@@ -120,6 +130,9 @@ def cmd_doctor(args) -> int:
     state = read_state()
     if not state:
         fail("plugin state file missing: the plugin is not running (Plugins -> Toolbag MCP)")
+        if is_listening(DEFAULT_PORT):
+            warn("yet something listens on port %d: a plugin left over from a crashed "
+                 "Toolbag or another program; restart Toolbag or use another port" % DEFAULT_PORT)
     else:
         alive = _pid_alive(int(state.get("pid", 0)))
         if alive is False:

@@ -1,4 +1,4 @@
-<!-- Budget 15 KB. Verified traps of Toolbag's Python API and of running a plugin server; read before writing code against mset. Full? Split by topic, do not append. -->
+<!-- Budget 15 KB. Verified traps of Toolbag's Python API and of running a plugin server; read before writing code against mset. Full? Split by topic (scene, materials, baker, render), do not append. -->
 # Pitfalls: Marmoset Toolbag's Python API and plugin servers
 
 Everything here was observed on Toolbag 5.0.2.2 (`getToolbagVersion()` = 5022) on Windows,
@@ -55,6 +55,22 @@ build 5.03.
   group confuses the baker, so duplicate outside of it.
 - **Hidden High nodes:** the Quick Loader creates the High node of a group hidden
   (`visible = False`); bakes still use it because `useHiddenMeshes` defaults to True.
+- **`dir()` on an mset object lists its real attributes**, and a build may have fewer than
+  the docs: a 5.02 `LightObject` has 17 (no `shape`, `physicalUnits`,
+  `physicalConserveEnergy`, `lightScaling`, `normalize`, `profile*`), a `FogObject` only
+  `color`, `density`, `opacity`. The actions union `dir()` with the documented names and
+  keep what `hasattr` confirms; `object.attributes` shows the result.
+- **`SkyBoxObject.rotation` is a plain float** (degrees), not a transform: the sky is no
+  `TransformObject`. Loading Marmoset's `data/sky/blank.tbsky` sets `mode` to
+  `'ambient sky'`.
+
+## Render and timeline
+
+- **`images.outputPath` defaults to the user's Desktop**; set it before `renderImages()`,
+  which writes `tbrender.png` there. `renderCamera(path, w, h, ...)` writes exactly the
+  requested size (320x240 raster in 0.15 s); `options.renderer` reads `'Raster'`
+  (capitalised), an unsaved scene lists only the render pass `'Full Quality'`.
+- A fresh scene's timeline has 300 frames at 30 fps.
 
 ## Materials
 

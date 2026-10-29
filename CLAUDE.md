@@ -7,8 +7,9 @@ MCP-Server fuer **Marmoset Toolbag 5**: ein Plugin in Toolbag nimmt Auftraege an
 Python-Server aussen bietet sie Claude (Code, Desktop, Cursor) als feste Werkzeuge an: Szene,
 Materialien, Baker, Licht, Render. Freier Python-Code laeuft nur, wenn der Nutzer den Haken im
 Plugin setzt. Nachfolger der privaten Bruecke `X:\eg\Tools\toolbag-bridge\` (Unreal Tools).
-Soll **oeffentlich auf GitHub** erscheinen, ist bis zum ersten Release privat. Stand M1
-(29.10.2026): Plugin, Server, Familien 1 bis 4 laufen, Abnahme bestanden; M2 folgt.
+Soll **oeffentlich auf GitHub** erscheinen, ist bis zum ersten Release privat. Stand M2
+(29.10.2026): alle sieben Werkzeugfamilien laufen (90 Werkzeuge), Tests ohne Toolbag; M3
+(Paketierung, englisches README, Release) folgt.
 
 ## Wo steht was
 

@@ -13,10 +13,11 @@ Diese Datei beantwortet **welche Datei was ist und wie man das Projekt startet**
 Was gerade offen ist, steht in `notes/STATUS.md`. Zum ersten Release (Meilenstein M3) wird
 sie englisch und zur Anleitung fuer fremde Nutzer.
 
-**Stand:** Meilenstein M1 (29.10.2026): Plugin, Server, die Werkzeugfamilien Diagnose,
-Szene, Materialien und Baker (61 Werkzeuge, 3 Ressourcen), Installer und `doctor`. Abnahme
-am Ketten-Ablauf an einer Testszene bestanden. Was als Naechstes kommt: `docs/bauplan.md`,
-Abschnitt Meilensteine.
+**Stand:** Meilenstein M2 (29.10.2026): Plugin, Server, alle sieben Werkzeugfamilien
+(Diagnose, Szene, Materialien, Baker, Licht/Sky/Fog/Kamera, Render/Timeline, Python mit
+Haken; 90 Werkzeuge, 5 Ressourcen), Installer, `doctor`, Tests ohne Toolbag gegen ein
+nachgebautes `mset`. Abnahme an Toolbag 5.0.2.2 bestanden. Was als Naechstes kommt (M3,
+Paketierung und Release): `docs/bauplan.md`, Abschnitt Meilensteine.
 
 ---
 
@@ -25,13 +26,13 @@ Abschnitt Meilensteine.
 | Datei | Was sie tut |
 |---|---|
 | `plugin/__main__.py` | Das Toolbag-Plugin: HTTP-Server im Nebenthread, Warteschlange auf `onPeriodicUpdate`, Fenster mit Port, Python-Haken, Zaehler und Stop; schreibt Port und Token nach `~\.toolbag-mcp\plugin.json` |
-| `plugin/tbmcp_actions.py` | Die benannten Aktionen (`status`, `scene.*`, `object.*`, `selection.*`, `material.*`, `baker.*`, `python.exec`, `toolbag.quit`) mit Parameterpruefung und den eingebauten Schutzregeln |
-| `toolbag_mcp/server.py` | Der MCP-Server: je Aktion ein Werkzeug mit Typen, Beschreibung und Annotation, drei Ressourcen, Transport stdio |
+| `plugin/tbmcp_actions.py` | Die benannten Aktionen (`status`, `scene.*`, `object.*`, `selection.*`, `material.*`, `baker.*`, `light.*`, `sky.*`, `fog.*`, `camera.*`, `render.*`, `timeline.*`, `python.exec`, `toolbag.quit`) mit Parameterpruefung und den eingebauten Schutzregeln; `object.attributes` und `object.set_attributes` greifen jedes Attribut jedes Objekts |
+| `toolbag_mcp/server.py` | Der MCP-Server: je Aktion ein Werkzeug mit Typen, Beschreibung, Annotation und Ausgabeschema, fuenf Ressourcen, Transport stdio |
 | `toolbag_mcp/client.py` | HTTP-Client zum Plugin; liest Port und Token bei jedem Aufruf aus `plugin.json` |
 | `toolbag_mcp/focus.py` | Holt Toolbag fuer die Dauer eines Aufrufs nach vorn und gibt den Fokus zurueck (Windows) |
 | `toolbag_mcp/install.py` | Junction oder Kopie des Plugins in Toolbags Plugin-Ordner, `verify`, Suche nach fremden Plugins mit Update-Callback |
 | `toolbag_mcp/cli.py` | Kommando `toolbag-mcp`: `serve` (Standard), `install`, `uninstall`, `verify`, `doctor`, `call`, `actions`, `register` |
-| `tests/` | pytest gegen ein nachgebautes `mset` (Registry, Referenzen, Schutzregeln, Map-Aliasse, zweiphasige Szenen-Operationen); `make_test_assets.py` erzeugt mit Blender die neutralen Testdaten |
+| `tests/` | pytest ohne Toolbag: `fake_mset.py` baut `mset` nach (Szene, Materialien, Baker, Licht, Kamera, Sky, Fog, Render, Timeline, mit den belegten Fallen), `test_actions.py` prueft die Aktionen dagegen, `test_plugin_main.py` den Plugin-Kern ueber echtes HTTP, `test_server.py` die MCP-Schicht in-process; `make_test_assets.py` erzeugt mit Blender die neutralen Testdaten |
 | `docs/bauplan.md` | Zielbild, Architektur, Werkzeugfamilien, Meilensteine mit Abnahme |
 | `docs/pitfalls.md` | Belegte Fallen der Toolbag-API und des Plugin-Betriebs (englisch); lesen vor jedem Code gegen `mset` |
 | `pyproject.toml`, `uv.lock` | Paket (hatchling, `plugin/` wandert mit ins Wheel), Abhaengigkeit `mcp` 2.x, Dev-Werkzeuge pytest und ruff |

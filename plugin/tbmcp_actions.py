@@ -1397,6 +1397,608 @@ def baker_replace_low(group, path, baker=None):
             "u_range": [min(us), max(us)] if us else None, "same_transform": same_place}
 
 
+# ---------------------------------------------------------------- generic attributes
+
+_BASE_ATTRS = frozenset(("name", "parent", "visible", "locked", "collapsed", "uid", "mesh"))
+_TRANSFORM_ATTRS = frozenset(("position", "rotation", "scale", "pivot"))
+_OPTION_CLASSES = frozenset(("CameraLimits", "CameraLens", "CameraPostEffect", "RenderOptions",
+                             "RenderOutputOptions", "RenderPassOptions", "RenderCameraOptions"))
+# Documented attribute names (reference for 5.03); only those the running build has are read.
+_KNOWN_ATTRS = {
+    "LightObject": ("lightType", "color", "useTemperature", "temperature", "brightness", "shape",
+                    "lengthX", "lengthY", "width", "spotAngle", "spotSharpness", "spotVignette",
+                    "physicalUnits", "physicalConserveEnergy", "castShadows", "lightScaling",
+                    "normalize", "visibleShape", "gelPath", "gelTile", "castLensFlare",
+                    "lensFlareStrength", "profile", "profilePath", "profileWidth"),
+    "SkyBoxObject": ("brightness", "brightnessUnit", "rotation", "backgroundBrightness",
+                     "backgroundRotation", "blur", "mode", "backgroundColor",
+                     "childLightBrightness", "time", "day", "timeZone", "latitude", "longitude",
+                     "turbidity", "sunBrightness", "sunScale", "groundColorNear",
+                     "groundColorFar", "saturation", "whiteBalance", "tint",
+                     "realisticBrightness"),
+    "FogObject": ("color", "density", "opacity", "volumeType", "heightMin", "heightMax",
+                  "falloffMin", "falloffMax"),
+    "CameraObject": ("mode", "fov", "orbitRadius", "orthoScale", "focalLength", "nearPlaneScale",
+                     "limits", "lens", "postEffect"),
+    "MeshObject": _MESH_KEYS,
+    "ShadowCatcherObject": ("skyShadow", "indirectShadow", "edgeFade", "fadeRadius",
+                            "fadeFalloff", "fadeTexturePath", "textureChannel", "opacity",
+                            "roughness", "roughnessTexturePath", "roughnessTextureChannel",
+                            "invertRoughness", "specularIntensity", "specularFresnel",
+                            "specularTexturePath", "specularTextureChannel"),
+    "BackdropObject": ("path", "alpha", "useAlpha"),
+}
+
+
+def _is_option_object(value):
+    """A Toolbag settings container (camera lens, render options, ...) as opposed to a
+    scene object, material, texture or plain value."""
+    if value is None or isinstance(value, (bool, int, float, str, list, tuple, dict)):
+        return False
+    if isinstance(value, (mset.SceneObject, mset.Material, mset.Texture)):
+        return False
+    cls = type(value)
+    return cls.__name__ in _OPTION_CLASSES or getattr(cls, "__module__", "") == "mset"
+
+
+def _read_attrs(obj, keys=None, skip=_BASE_ATTRS, depth=0):
+    """Plain attributes of a Toolbag object as a dict; settings containers one level down
+    are expanded, methods and the base object/transform fields are left out."""
+    out = {}
+    if keys is None:
+        names = set(n for n in dir(obj) if not n.startswith("_"))
+        names |= set(_KNOWN_ATTRS.get(type(obj).__name__, ()))
+        keys = sorted(n for n in names if hasattr(obj, n))
+    hidden = set(skip)
+    if isinstance(obj, mset.TransformObject) and skip is _BASE_ATTRS:
+        hidden |= _TRANSFORM_ATTRS
+    for key in keys:
+        if key in hidden:
+            continue
+        try:
+            value = getattr(obj, key)
+        except Exception as exc:  # noqa: BLE001
+            out[key] = "<error: %s>" % exc
+            continue
+        if callable(value):
+            continue
+        if depth < 2 and _is_option_object(value):
+            out[key] = _read_attrs(value, skip=(), depth=depth + 1)
+        elif (depth < 2 and isinstance(value, (list, tuple)) and value
+              and _is_option_object(value[0])):
+            out[key] = [_read_attrs(v, skip=(), depth=depth + 1) for v in value]
+        else:
+            out[key] = _jsonable(value)
+    return out
+
+
+def _apply_attrs(obj, attributes, prefix=""):
+    """Set attributes from a dict. Nested dicts go into settings containers ('lens':
+    {'dofStop': 2.8}), dotted keys work too ('lens.dofStop'); lists become float lists."""
+    if not isinstance(attributes, dict) or not attributes:
+        raise ActionError("attributes must be a non-empty object, e.g. {\"brightness\": 2}")
+    applied = {}
+    for key, value in attributes.items():
+        target, attr = obj, str(key)
+        if "." in attr:
+            parts = attr.split(".")
+            for part in parts[:-1]:
+                if part.startswith("_") or not hasattr(target, part):
+                    raise ActionError("%s%s: no %r" % (prefix, key, part))
+                target = getattr(target, part)
+            attr = parts[-1]
+        if attr.startswith("_") or not hasattr(target, attr):
+            raise ActionError("%s has no attribute %r. Known: %s"
+                              % (type(obj).__name__, prefix + str(key), sorted(_read_attrs(obj))))
+        current = getattr(target, attr)
+        if callable(current):
+            raise ActionError("%r is a method, not a setting" % (prefix + str(key)))
+        if isinstance(value, dict) and _is_option_object(current):
+            applied[key] = _apply_attrs(current, value, prefix + str(key) + ".")
+            continue
+        if isinstance(value, (list, tuple)):
+            value = [float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v
+                     for v in value]
+        try:
+            setattr(target, attr, value)
+        except Exception as exc:  # noqa: BLE001
+            raise ActionError("Could not set %s=%r: %s" % (prefix + str(key), value, exc)) from exc
+        applied[key] = _jsonable(getattr(target, attr))
+    return applied
+
+
+_CREATABLE = ("LightObject", "CameraObject", "FogObject", "SkyBoxObject", "ShadowCatcherObject",
+              "BackdropObject", "SceneObject", "TransformObject", "BakerObject")
+
+
+@action("object.attributes")
+def object_attributes(ref):
+    """Every plain attribute of an object with its value, type-specific (light, camera with
+    lens/limits/postEffect, sky, fog, shadow catcher, backdrop, mesh). These are the names
+    for object.set_attributes."""
+    obj = resolve(ref)
+    return {"object": _ref(obj), "attributes": _read_attrs(obj)}
+
+
+@action("object.set_attributes")
+def object_set_attributes(ref, attributes):
+    """Set attributes of any object by name, e.g. {"brightness": 3, "color": [1, 0.9, 0.8]}
+    for a light or {"lens": {"dofStop": 2.8}} / {"lens.dofStop": 2.8} for a camera."""
+    obj = resolve(ref)
+    return {"object": _ref(obj), "applied": _apply_attrs(obj, attributes)}
+
+
+@action("object.create")
+def object_create(object_type, name=None, attributes=None, position=None, rotation=None,
+                  parent=None):
+    """Create a scene object by class name: LightObject, CameraObject, FogObject,
+    SkyBoxObject, ShadowCatcherObject, BackdropObject, SceneObject (a group),
+    TransformObject, BakerObject; optional name, transform, parent and attributes."""
+    cls = getattr(mset, str(object_type), None)
+    if object_type not in _CREATABLE or not isinstance(cls, type):
+        raise ActionError("Cannot create %r, choose one of %s" % (object_type, list(_CREATABLE)))
+    try:
+        obj = cls()
+    except Exception as exc:  # noqa: BLE001
+        raise ActionError("Toolbag could not create a %s: %s" % (object_type, exc)) from exc
+    if name:
+        obj.name = str(name)
+    if parent is not None:
+        obj.parent = resolve(parent)
+    for key, value in (("position", position), ("rotation", rotation)):
+        if value is None:
+            continue
+        if not isinstance(obj, mset.TransformObject):
+            raise ActionError("%s has no transform" % object_type)
+        if not isinstance(value, (list, tuple)) or len(value) != 3:
+            raise ActionError("%s must be a list of three numbers" % key)
+        setattr(obj, key, [float(v) for v in value])
+    applied = _apply_attrs(obj, attributes) if attributes else {}
+    d = info(obj, detail=True)
+    d["applied"] = applied
+    return d
+
+
+def _single(class_name, ref=None):
+    cls = getattr(mset, class_name)
+    if ref is not None:
+        return resolve(ref, cls)
+    found = [o for o in _all() if isinstance(o, cls)]
+    if not found:
+        raise ActionError("No %s in the scene" % class_name)
+    return found[0]
+
+
+# ---------------------------------------------------------------- family 5: light, sky, fog, camera
+
+_LIGHT_TYPES = ("directional", "spot", "omni")
+_LIGHT_SUMMARY = ("lightType", "brightness", "color", "castShadows", "shape", "spotAngle",
+                  "useTemperature", "temperature", "physicalUnits")
+
+
+@action("light.list")
+def light_list():
+    """All lights (sky child lights included) with type, brightness, colour, shadows,
+    shape and transform."""
+    out = []
+    for light in _all():
+        if not isinstance(light, mset.LightObject):
+            continue
+        d = info(light)
+        for key in _LIGHT_SUMMARY:
+            d[key] = _get(light, key)
+        out.append(d)
+    return {"count": len(out), "lights": out}
+
+
+@action("light.create")
+def light_create(light_type="omni", name=None, position=None, rotation=None, attributes=None):
+    """Create a light: 'omni', 'spot' or 'directional', with optional transform and
+    attributes (brightness, color [r,g,b], castShadows, width, lengthX, lengthY, spotAngle,
+    useTemperature, temperature, ...; object.attributes lists what this build has)."""
+    if light_type not in _LIGHT_TYPES:
+        raise ActionError("light_type must be one of %s" % list(_LIGHT_TYPES))
+    attrs = {"lightType": light_type}
+    attrs.update(attributes or {})
+    return object_create("LightObject", name=name, attributes=attrs, position=position,
+                         rotation=rotation)
+
+
+@action("sky.get")
+def sky_get(ref=None):
+    """The sky (the scene's first SkyBoxObject, or the given one): mode, brightness,
+    rotation, background, procedural sun settings, child lights."""
+    sky = _single("SkyBoxObject", ref)
+    d = info(sky)
+    d["attributes"] = _read_attrs(sky)
+    d["child_lights"] = [_ref(c) for c in sky.getChildren() if isinstance(c, mset.LightObject)]
+    return d
+
+
+@action("sky.set")
+def sky_set(attributes, ref=None):
+    """Set sky attributes: brightness, rotation (degrees), mode ('color', 'sky', 'blurred
+    sky', 'ambient sky'), backgroundColor, blur, time/day/latitude/longitude for a
+    procedural sky, ..."""
+    sky = _single("SkyBoxObject", ref)
+    return {"sky": _ref(sky), "applied": _apply_attrs(sky, attributes)}
+
+
+@action("sky.load")
+def sky_load(path, ref=None):
+    """Load a sky: a .tbsky file replaces the whole sky, an image (.hdr, .exr, .png, .jpg)
+    becomes the panorama."""
+    path = _existing_file(path)
+    sky = _single("SkyBoxObject", ref)
+    if path.lower().endswith(".tbsky"):
+        sky.loadSky(path)
+        how = "tbsky"
+    else:
+        sky.importImage(path)
+        how = "image"
+    return {"sky": _ref(sky), "loaded": path, "as": how, "mode": _get(sky, "mode")}
+
+
+@action("sky.save")
+def sky_save(path, ref=None):
+    """Save the sky as a .tbsky archive."""
+    sky = _single("SkyBoxObject", ref)
+    path = _abs(path)
+    _ensure_dir(path)
+    sky.saveSky(path)
+    return {"sky": _ref(sky), "path": path, "exists": os.path.isfile(path)}
+
+
+@action("sky.set_background_image")
+def sky_set_background_image(path=None, ref=None):
+    """Use an image as the sky's background, or clear it when path is empty."""
+    sky = _single("SkyBoxObject", ref)
+    if not path:
+        sky.clearBackgroundImage()
+        return {"sky": _ref(sky), "background": None}
+    path = _existing_file(path)
+    sky.importBackgroundImage(path)
+    return {"sky": _ref(sky), "background": path}
+
+
+@action("sky.compute_procedural")
+def sky_compute_procedural(ref=None):
+    """Switch the sky to procedural mode (sun by time, day and location) and recompute it."""
+    sky = _single("SkyBoxObject", ref)
+    sky.computeProcedural()
+    return sky_get(sky.uid)
+
+
+@action("fog.get")
+def fog_get(ref=None):
+    """The scene's fog object with its attributes, or exists: false."""
+    fogs = [o for o in _all() if isinstance(o, mset.FogObject)]
+    fog = resolve(ref, mset.FogObject) if ref is not None else (fogs[0] if fogs else None)
+    if fog is None:
+        return {"exists": False, "fog": None}
+    d = info(fog)
+    d["attributes"] = _read_attrs(fog)
+    return {"exists": True, "fog": d}
+
+
+@action("fog.set")
+def fog_set(attributes, ref=None, create=True):
+    """Set fog attributes (color, density, opacity, volumeType 'fit'/'vertical', heightMin,
+    heightMax, falloffMin, falloffMax); creates the fog object when the scene has none."""
+    fogs = [o for o in _all() if isinstance(o, mset.FogObject)]
+    if ref is not None:
+        fog = resolve(ref, mset.FogObject)
+    elif fogs:
+        fog = fogs[0]
+    elif create:
+        fog = mset.FogObject()
+    else:
+        raise ActionError("No fog object in the scene")
+    return {"fog": _ref(fog), "applied": _apply_attrs(fog, attributes)}
+
+
+def _active_camera():
+    try:
+        return mset.getCamera()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+_CAMERA_SUMMARY = ("mode", "fov", "focalLength", "orthoScale")
+
+
+@action("camera.list")
+def camera_list():
+    """All cameras with mode, field of view, focal length and which one is active."""
+    active = _active_camera()
+    active_uid = active.uid if active is not None else None
+    cams = []
+    for cam in _all():
+        if not isinstance(cam, mset.CameraObject):
+            continue
+        d = info(cam)
+        d["active"] = cam.uid == active_uid
+        for key in _CAMERA_SUMMARY:
+            d[key] = _get(cam, key)
+        cams.append(d)
+    return {"count": len(cams), "active": active_uid, "cameras": cams}
+
+
+@action("camera.get")
+def camera_get(ref=None):
+    """One camera in full (the active one when ref is omitted): transform, mode, fov,
+    focal length, and the lens (depth of field, distortion, flares, motion blur), limits
+    and postEffect (tone mapping, exposure, contrast, bloom, vignette, grain) settings."""
+    cam = resolve(ref, mset.CameraObject) if ref is not None else _active_camera()
+    if cam is None:
+        raise ActionError("No active camera")
+    d = info(cam, detail=True)
+    d["attributes"] = _read_attrs(cam)
+    return d
+
+
+@action("camera.create")
+def camera_create(name=None, position=None, rotation=None, attributes=None, activate=False):
+    """Create a camera with optional transform and attributes; activate makes it the
+    viewport and render camera."""
+    d = object_create("CameraObject", name=name, attributes=attributes, position=position,
+                      rotation=rotation)
+    if activate:
+        mset.setCamera(resolve(d["uid"], mset.CameraObject))
+        d["active"] = True
+    return d
+
+
+@action("camera.set")
+def camera_set(attributes, ref=None):
+    """Set camera attributes (the active camera when ref is omitted): fov, focalLength,
+    mode, {"lens": {"dofMode": 1, "dofStop": 2.8, "dofFocusDistance": 50}},
+    {"postEffect": {"toneMappingMode": "aces", "exposure": 1.2}}, {"limits": {...}}."""
+    cam = resolve(ref, mset.CameraObject) if ref is not None else _active_camera()
+    if cam is None:
+        raise ActionError("No active camera")
+    return {"camera": _ref(cam), "applied": _apply_attrs(cam, attributes)}
+
+
+@action("camera.set_active")
+def camera_set_active(ref):
+    """Make a camera the active viewport and render camera."""
+    cam = resolve(ref, mset.CameraObject)
+    mset.setCamera(cam)
+    return {"active": _ref(cam)}
+
+
+@action("camera.post_effect_file")
+def camera_post_effect_file(path, save=False, ref=None):
+    """Load a camera post effect preset from a file, or save the current one with
+    save=true."""
+    cam = resolve(ref, mset.CameraObject) if ref is not None else _active_camera()
+    if cam is None:
+        raise ActionError("No active camera")
+    if save:
+        path = _abs(path)
+        _ensure_dir(path)
+        cam.savePostEffect(path)
+        return {"camera": _ref(cam), "saved": path, "exists": os.path.isfile(path)}
+    path = _existing_file(path)
+    cam.loadPostEffect(path)
+    return {"camera": _ref(cam), "loaded": path,
+            "postEffect": _read_attrs(cam.postEffect, skip=())}
+
+
+# ---------------------------------------------------------------- family 6: render, timeline
+
+def _render_object():
+    found = [o for o in _all() if isinstance(o, mset.RenderObject)]
+    if not found:
+        raise ActionError("No RenderObject in the scene")
+    return found[0]
+
+
+def _render_cameras(render):
+    out = []
+    for entry in render.cameras:
+        cam = getattr(entry, "camera", None)
+        out.append({"enabled": bool(getattr(entry, "enabled", False)),
+                    "camera": _ref(cam) if cam is not None else None})
+    return out
+
+
+def _render_passes(render):
+    out = []
+    for entry in render.renderPasses:
+        out.append({"enabled": bool(getattr(entry, "enabled", False)),
+                    "renderPass": getattr(entry, "renderPass", "")})
+    return out
+
+
+@action("render.get")
+def render_get():
+    """The render object: options (renderer, ray tracing, shadows, occlusion, wireframe,
+    watermark, ...), image and video output settings (outputPath, format, width, height,
+    samples, transparency), the cameras and render passes enabled for export."""
+    render = _render_object()
+    return {"object": _ref(render),
+            "options": _read_attrs(render.options, skip=()),
+            "images": _read_attrs(render.images, skip=()),
+            "videos": _read_attrs(render.videos, skip=()),
+            "cameras": _render_cameras(render),
+            "passes": _render_passes(render)}
+
+
+@action("render.set")
+def render_set(options=None, images=None, videos=None):
+    """Change render settings: options ({"renderer": "raytrace", "rayTraceBounces": 4,
+    "shadowQuality": "High"}), images ({"outputPath": "C:/out", "format": "PNG", "width":
+    1920, "height": 1080, "samples": 256, "transparency": true}), videos (same keys)."""
+    render = _render_object()
+    applied = {}
+    for name, attrs in (("options", options), ("images", images), ("videos", videos)):
+        if not attrs:
+            continue
+        if isinstance(attrs, dict) and isinstance(attrs.get("outputPath"), str):
+            attrs = dict(attrs)
+            attrs["outputPath"] = _abs(attrs["outputPath"])
+            os.makedirs(attrs["outputPath"], exist_ok=True)
+        applied[name] = _apply_attrs(getattr(render, name), attrs, name + ".")
+    if not applied:
+        raise ActionError("Pass options, images or videos")
+    return applied
+
+
+def _match_ref(obj, refs):
+    if obj is None:
+        return False
+    for ref in refs:
+        if ref == obj.uid or ref == obj.name:
+            return True
+    return False
+
+
+@action("render.set_cameras")
+def render_set_cameras(enable=None, disable=None):
+    """Choose which cameras render on render.images / render.videos (uids or names)."""
+    render = _render_object()
+    enable = resolve_many(enable) if enable else []
+    disable = resolve_many(disable) if disable else []
+    for entry in render.cameras:
+        cam = getattr(entry, "camera", None)
+        if cam is None:
+            continue
+        if any(c.uid == cam.uid for c in enable):
+            entry.enabled = True
+        if any(c.uid == cam.uid for c in disable):
+            entry.enabled = False
+    return {"cameras": _render_cameras(render)}
+
+
+@action("render.set_passes")
+def render_set_passes(enable=None, disable=None):
+    """Switch render passes on or off by name (render.get lists them)."""
+    render = _render_object()
+    known = [getattr(p, "renderPass", "") for p in render.renderPasses]
+    for name in list(enable or []) + list(disable or []):
+        if name not in known:
+            raise ActionError("Unknown render pass %r. Passes: %s" % (name, known))
+    for entry in render.renderPasses:
+        if entry.renderPass in (enable or []):
+            entry.enabled = True
+        if entry.renderPass in (disable or []):
+            entry.enabled = False
+    return {"passes": _render_passes(render)}
+
+
+@action("render.image")
+def render_image(path=None, width=-1, height=-1, sampling=-1, transparency=False, camera="",
+                 viewport_pass=""):
+    """Render one image with the active camera (or the named one) using the render
+    object's settings; width, height and sampling default to those settings. With path the
+    file is written (format by extension), otherwise the image is only rendered."""
+    if path:
+        path = _abs(path)
+        _ensure_dir(path)
+    if camera:
+        camera = resolve(camera, mset.CameraObject).name
+    started = time.time()
+    image = mset.renderCamera(path or "", int(width), int(height), int(sampling),
+                              bool(transparency), str(camera or ""), str(viewport_pass or ""))
+    out = {"seconds": round(time.time() - started, 2), "path": path,
+           "exists": bool(path and os.path.isfile(path)),
+           "bytes": os.path.getsize(path) if path and os.path.isfile(path) else None}
+    try:
+        out["pixel_format"] = image.getPixelFormat()
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _new_files(folder, since):
+    if not folder or not os.path.isdir(folder):
+        return []
+    out = []
+    for name in sorted(os.listdir(folder)):
+        full = os.path.join(folder, name)
+        try:
+            if os.path.isfile(full) and os.path.getmtime(full) >= since - 1:
+                out.append({"path": full, "bytes": os.path.getsize(full)})
+        except OSError:
+            pass
+    return out
+
+
+@action("render.images")
+def render_images(width=-1, height=-1, sampling=-1, transparency=False):
+    """Render all enabled cameras and passes to the image output folder (render.get:
+    images.outputPath). Returns the files written."""
+    render = _render_object()
+    folder = getattr(render.images, "outputPath", "")
+    started = time.time()
+    mset.renderImages(int(width), int(height), int(sampling), bool(transparency))
+    return {"outputPath": folder, "seconds": round(time.time() - started, 2),
+            "files": _new_files(folder, started)}
+
+
+@action("render.videos")
+def render_videos(width=-1, height=-1, sampling=-1, transparency=False):
+    """Render the animation to the video output folder (render.get: videos.outputPath).
+    Can take long."""
+    render = _render_object()
+    folder = getattr(render.videos, "outputPath", "")
+    started = time.time()
+    mset.renderVideos(int(width), int(height), int(sampling), bool(transparency))
+    return {"outputPath": folder, "seconds": round(time.time() - started, 2),
+            "files": _new_files(folder, started)}
+
+
+@action("render.export_viewer")
+def render_export_viewer(path, title="", author="", author_url="", texture_quality="high",
+                         width=-1, height=-1, export_animations=False):
+    """Export a Marmoset Viewer (.mview) archive of the scene."""
+    path = _abs(path)
+    _ensure_dir(path)
+    mset.exportViewer(path=path, title=str(title), author=str(author), authorURL=str(author_url),
+                      textureQuality=str(texture_quality), width=int(width), height=int(height),
+                      exportAnimations=bool(export_animations))
+    return {"path": path, "exists": os.path.isfile(path),
+            "bytes": os.path.getsize(path) if os.path.isfile(path) else None}
+
+
+@action("timeline.get")
+def timeline_get():
+    """Animation timeline: time, frame, total frames, frame rate, selection, speed."""
+    t = mset.getTimeline()
+    return {"time": t.getTime(), "frame": t.currentFrame, "total_frames": t.totalFrames,
+            "frame_rate": t.getFrameRate(), "selection": [t.selectionStart, t.selectionEnd],
+            "playback_speed": t.playbackSpeed}
+
+
+@action("timeline.set")
+def timeline_set(time=None, frame=None, total_frames=None, frame_rate=None,
+                 selection_start=None, selection_end=None, playback_speed=None, play=None):
+    """Set the timeline: time in seconds or frame, total frames, frame rate (resamples
+    keyframes), selection range, playback speed; play=true/false starts or stops playback."""
+    t = mset.getTimeline()
+    if total_frames is not None:
+        t.totalFrames = int(total_frames)
+    if frame_rate is not None:
+        t.resample(int(frame_rate))
+    if time is not None:
+        t.setTime(float(time))
+    if frame is not None:
+        t.currentFrame = int(frame)
+    if selection_start is not None:
+        t.selectionStart = int(selection_start)
+    if selection_end is not None:
+        t.selectionEnd = int(selection_end)
+    if playback_speed is not None:
+        t.playbackSpeed = float(playback_speed)
+    if play is True:
+        t.play()
+    elif play is False:
+        t.pause()
+    return timeline_get()
+
+
 # ---------------------------------------------------------------- family 7: free Python (gated)
 
 _NAMESPACE = {"mset": mset}

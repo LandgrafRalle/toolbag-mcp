@@ -36,10 +36,9 @@ def test_status_against_fake(actions):
 
 def test_resolve_by_uid_name_and_ambiguity(actions):
     fake = actions.fake
-    a = fake.MeshObject(uid=1, name="Body")
-    b = fake.MeshObject(uid=2, name="Body")
+    fake.MeshObject(uid=1, name="Body")
+    fake.MeshObject(uid=2, name="Body")
     c = fake.SceneObject(uid=3, name="Group")
-    fake._objects.extend([a, b, c])
     assert actions.resolve(3) is c
     assert actions.resolve("group") is c
     with pytest.raises(actions.ActionError, match="Ambiguous"):
@@ -54,8 +53,7 @@ def test_visibility_guards(actions):
     fake = actions.fake
     group = fake.SceneObject(uid=1, name="Group")
     mesh = fake.MeshObject(uid=2, name="Mesh", parent=group)
-    sub = fake.SubMeshObject(uid=3, name="Sub", parent=mesh)
-    fake._objects.extend([group, mesh, sub])
+    fake.SubMeshObject(uid=3, name="Sub", parent=mesh)
     with pytest.raises(actions.ActionError, match="SubMeshObject"):
         actions.run("object.set_visible", {"refs": [3], "visible": False})
     with pytest.raises(actions.ActionError, match="allow_mesh"):

@@ -25,9 +25,13 @@ referenced by name; `baker` may be omitted when the scene has exactly one bake p
 
 Bake scenes: toggle visibility with `baker_set_visible` / `baker_isolate` (group, Low and
 High nodes), never on single meshes or submeshes, that corrupts bakes. Textures set through
-`material_set_texture` are re-read from disk. Imports and bakes can take minutes.
-`execute_python` only works while the user ticks "Allow Python execution" in the plugin
-window inside Toolbag."""
+`material_set_texture` are re-read from disk. Imports, bakes and renders can take minutes.
+
+Lights, cameras, sky, fog and the render object are objects too: `object_attributes` shows
+every setting with its value, `object_set_attributes` changes them (nested settings as dicts
+or dotted keys); the dedicated tools (`light_create`, `camera_set`, `sky_load`, `render_set`,
+`render_image`) cover the common cases. `execute_python` only works while the user ticks
+"Allow Python execution" in the plugin window inside Toolbag."""
 
 READ = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True,
                        openWorldHint=False)
@@ -517,6 +521,256 @@ async def baker_replace_low(group: str, path: str, baker: Ref | None = None) -> 
     return await _call("baker.replace_low", _p(group=group, path=path, baker=baker), LONG)
 
 
+# ---------------------------------------------------------------- any object's attributes
+
+@server.tool(annotations=READ)
+async def object_attributes(ref: Ref) -> dict[str, Any]:
+    """Every plain attribute of an object with its current value, type-specific: light,
+    camera (lens, limits, postEffect expanded), sky, fog, shadow catcher, backdrop, mesh.
+    These are the names object_set_attributes takes."""
+    return await _call("object.attributes", {"ref": ref})
+
+
+@server.tool(annotations=WRITE)
+async def object_set_attributes(ref: Ref, attributes: dict[str, Any]) -> dict[str, Any]:
+    """Set attributes of any object by name: {"brightness": 3, "color": [1, 0.9, 0.8]} for a
+    light, {"lens": {"dofStop": 2.8}} or {"lens.dofStop": 2.8} for a camera, {"density":
+    0.2} for fog, {"opacity": 0.5} for a shadow catcher."""
+    return await _call("object.set_attributes", {"ref": ref, "attributes": attributes})
+
+
+@server.tool(annotations=WRITE)
+async def object_create(object_type: str, name: str | None = None,
+                        attributes: dict[str, Any] | None = None,
+                        position: list[float] | None = None,
+                        rotation: list[float] | None = None,
+                        parent: Ref | None = None) -> dict[str, Any]:
+    """Create a scene object by class: LightObject, CameraObject, FogObject, SkyBoxObject,
+    ShadowCatcherObject, BackdropObject, SceneObject (a group), TransformObject,
+    BakerObject; with optional name, transform, parent and attributes set right away."""
+    return await _call("object.create", _p(object_type=object_type, name=name,
+                                           attributes=attributes, position=position,
+                                           rotation=rotation, parent=parent))
+
+
+# ---------------------------------------------------------------- lights, sky, fog, cameras
+
+@server.tool(annotations=READ)
+async def light_list() -> dict[str, Any]:
+    """All lights (sky child lights included) with type, brightness, colour, shadows, shape
+    and transform."""
+    return await _call("light.list")
+
+
+@server.tool(annotations=WRITE)
+async def light_create(light_type: str = "omni", name: str | None = None,
+                       position: list[float] | None = None,
+                       rotation: list[float] | None = None,
+                       attributes: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Create a light: 'omni', 'spot' or 'directional', with optional transform and
+    attributes such as brightness, color [r, g, b], castShadows, width, lengthX, lengthY,
+    spotAngle, useTemperature, temperature (object_attributes lists what this Toolbag build
+    has; 5.02 has no shape or physical units)."""
+    return await _call("light.create", _p(light_type=light_type, name=name, position=position,
+                                          rotation=rotation, attributes=attributes))
+
+
+@server.tool(annotations=READ)
+async def sky_get(ref: Ref | None = None) -> dict[str, Any]:
+    """The sky: mode, brightness, rotation, background, procedural sun settings and its
+    child lights."""
+    return await _call("sky.get", _p(ref=ref))
+
+
+@server.tool(annotations=WRITE)
+async def sky_set(attributes: dict[str, Any], ref: Ref | None = None) -> dict[str, Any]:
+    """Set sky attributes: brightness, rotation (degrees), mode ('color', 'sky', 'blurred
+    sky', 'ambient sky'), backgroundColor, blur, and for a procedural sky time, day,
+    latitude, longitude, turbidity, sunBrightness."""
+    return await _call("sky.set", _p(attributes=attributes, ref=ref))
+
+
+@server.tool(annotations=WRITE)
+async def sky_load(path: str, ref: Ref | None = None) -> dict[str, Any]:
+    """Load a sky: a .tbsky file replaces the whole sky, an image (.hdr, .exr, .png, .jpg)
+    becomes the panorama."""
+    return await _call("sky.load", _p(path=path, ref=ref), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def sky_save(path: str, ref: Ref | None = None) -> dict[str, Any]:
+    """Save the sky as a .tbsky archive."""
+    return await _call("sky.save", _p(path=path, ref=ref), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def sky_set_background_image(path: str | None = None,
+                                   ref: Ref | None = None) -> dict[str, Any]:
+    """Use an image as the sky's background; an empty path clears it."""
+    return await _call("sky.set_background_image", _p(path=path, ref=ref), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def sky_compute_procedural(ref: Ref | None = None) -> dict[str, Any]:
+    """Switch the sky to procedural mode (sun by time, day and location) and recompute it."""
+    return await _call("sky.compute_procedural", _p(ref=ref))
+
+
+@server.tool(annotations=READ)
+async def fog_get(ref: Ref | None = None) -> dict[str, Any]:
+    """The scene's fog with its attributes, or exists: false when there is none."""
+    return await _call("fog.get", _p(ref=ref))
+
+
+@server.tool(annotations=WRITE)
+async def fog_set(attributes: dict[str, Any], ref: Ref | None = None,
+                  create: bool = True) -> dict[str, Any]:
+    """Set fog attributes (color, density, opacity, volumeType 'fit'/'vertical', heightMin,
+    heightMax, falloffMin, falloffMax); creates the fog object when the scene has none."""
+    return await _call("fog.set", _p(attributes=attributes, ref=ref, create=create))
+
+
+@server.tool(annotations=READ)
+async def camera_list() -> dict[str, Any]:
+    """All cameras with mode, field of view, focal length and which one is active."""
+    return await _call("camera.list")
+
+
+@server.tool(annotations=READ)
+async def camera_get(ref: Ref | None = None) -> dict[str, Any]:
+    """One camera in full (the active one by default): transform, mode, fov, focal length,
+    lens (depth of field, distortion, flares, motion blur), limits and postEffect (tone
+    mapping, exposure, contrast, bloom, vignette, grain)."""
+    return await _call("camera.get", _p(ref=ref))
+
+
+@server.tool(annotations=WRITE)
+async def camera_create(name: str | None = None, position: list[float] | None = None,
+                        rotation: list[float] | None = None,
+                        attributes: dict[str, Any] | None = None,
+                        activate: bool = False) -> dict[str, Any]:
+    """Create a camera with optional transform and attributes; activate makes it the
+    viewport and render camera."""
+    return await _call("camera.create", _p(name=name, position=position, rotation=rotation,
+                                           attributes=attributes, activate=activate))
+
+
+@server.tool(annotations=WRITE)
+async def camera_set(attributes: dict[str, Any], ref: Ref | None = None) -> dict[str, Any]:
+    """Set camera attributes (the active camera by default): fov, focalLength, mode,
+    {"lens": {"dofMode": 1, "dofStop": 2.8, "dofFocusDistance": 50}}, {"postEffect":
+    {"toneMappingMode": "aces", "exposure": 1.2, "bloomBrightness": 0.1}}, {"limits": {...}}."""
+    return await _call("camera.set", _p(attributes=attributes, ref=ref))
+
+
+@server.tool(annotations=WRITE)
+async def camera_set_active(ref: Ref) -> dict[str, Any]:
+    """Make a camera the active viewport and render camera."""
+    return await _call("camera.set_active", {"ref": ref})
+
+
+@server.tool(annotations=WRITE)
+async def camera_post_effect_file(path: str, save: bool = False,
+                                  ref: Ref | None = None) -> dict[str, Any]:
+    """Load a camera post effect preset from a file, or save the current one (save=true)."""
+    return await _call("camera.post_effect_file", _p(path=path, save=save, ref=ref))
+
+
+# ---------------------------------------------------------------- render and timeline
+
+@server.tool(annotations=READ)
+async def render_get() -> dict[str, Any]:
+    """The render object: options (renderer, ray tracing, shadows, occlusion, wireframe,
+    watermark), image and video output settings (outputPath, format, width, height,
+    samples, transparency), and the cameras and passes enabled for export."""
+    return await _call("render.get")
+
+
+@server.tool(annotations=WRITE)
+async def render_set(options: dict[str, Any] | None = None, images: dict[str, Any] | None = None,
+                     videos: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Change render settings: options ({"renderer": "raytrace", "rayTraceBounces": 4,
+    "shadowQuality": "High"}), images ({"outputPath": "C:/out", "format": "PNG", "width":
+    1920, "height": 1080, "samples": 256, "transparency": true}), videos (same keys)."""
+    return await _call("render.set", _p(options=options, images=images, videos=videos))
+
+
+@server.tool(annotations=WRITE)
+async def render_set_cameras(enable: list[Ref] | None = None,
+                             disable: list[Ref] | None = None) -> dict[str, Any]:
+    """Choose which cameras render on render_images and render_videos."""
+    return await _call("render.set_cameras", _p(enable=enable, disable=disable))
+
+
+@server.tool(annotations=WRITE)
+async def render_set_passes(enable: list[str] | None = None,
+                            disable: list[str] | None = None) -> dict[str, Any]:
+    """Switch render passes on or off by name (render_get lists them)."""
+    return await _call("render.set_passes", _p(enable=enable, disable=disable))
+
+
+@server.tool(annotations=WRITE)
+async def render_image(path: str | None = None, width: int = -1, height: int = -1,
+                       sampling: int = -1, transparency: bool = False, camera: Ref | None = None,
+                       viewport_pass: str = "") -> dict[str, Any]:
+    """Render one image with the active camera (or the given one) using the render
+    object's settings; width, height and sampling default to those settings. With path
+    the file is written (format by extension). Can take minutes with ray tracing."""
+    return await _call("render.image", _p(path=path, width=width, height=height,
+                                          sampling=sampling, transparency=transparency,
+                                          camera=camera, viewport_pass=viewport_pass), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def render_images(width: int = -1, height: int = -1, sampling: int = -1,
+                        transparency: bool = False) -> dict[str, Any]:
+    """Render all enabled cameras and passes into the image output folder (render_get:
+    images.outputPath). Returns the files written."""
+    return await _call("render.images", _p(width=width, height=height, sampling=sampling,
+                                           transparency=transparency), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def render_videos(width: int = -1, height: int = -1, sampling: int = -1,
+                        transparency: bool = False) -> dict[str, Any]:
+    """Render the animation into the video output folder (render_get: videos.outputPath).
+    Can take long."""
+    return await _call("render.videos", _p(width=width, height=height, sampling=sampling,
+                                           transparency=transparency), LONG)
+
+
+@server.tool(annotations=WRITE)
+async def render_export_viewer(path: str, title: str = "", author: str = "", author_url: str = "",
+                               texture_quality: str = "high", width: int = -1, height: int = -1,
+                               export_animations: bool = False) -> dict[str, Any]:
+    """Export a Marmoset Viewer (.mview) archive of the scene."""
+    return await _call("render.export_viewer", _p(path=path, title=title, author=author,
+                                                  author_url=author_url,
+                                                  texture_quality=texture_quality, width=width,
+                                                  height=height,
+                                                  export_animations=export_animations), LONG)
+
+
+@server.tool(annotations=READ)
+async def timeline_get() -> dict[str, Any]:
+    """Animation timeline: time, frame, total frames, frame rate, selection, speed."""
+    return await _call("timeline.get")
+
+
+@server.tool(annotations=WRITE)
+async def timeline_set(time: float | None = None, frame: int | None = None,
+                       total_frames: int | None = None, frame_rate: int | None = None,
+                       selection_start: int | None = None, selection_end: int | None = None,
+                       playback_speed: float | None = None,
+                       play: bool | None = None) -> dict[str, Any]:
+    """Set the timeline: time in seconds or frame, total frames, frame rate (resamples
+    keyframes), selection range, playback speed; play=true/false starts or stops playback."""
+    return await _call("timeline.set", _p(time=time, frame=frame, total_frames=total_frames,
+                                          frame_rate=frame_rate, selection_start=selection_start,
+                                          selection_end=selection_end,
+                                          playback_speed=playback_speed, play=play))
+
+
 @server.tool(annotations=DESTRUCTIVE)
 async def toolbag_quit() -> dict[str, Any]:
     """Quit Toolbag. Unsaved changes are lost without a prompt; the plugin answers and
@@ -555,6 +809,18 @@ async def baker_resource() -> dict[str, Any]:
     if len(bakers.get("bakers", [])) == 1:
         return await _call("baker.get")
     return bakers
+
+
+@server.resource("toolbag://cameras", mime_type="application/json")
+async def cameras_resource() -> dict[str, Any]:
+    """All cameras and which one is active."""
+    return await _call("camera.list")
+
+
+@server.resource("toolbag://render", mime_type="application/json")
+async def render_resource() -> dict[str, Any]:
+    """Render options, output settings, cameras and passes."""
+    return await _call("render.get")
 
 
 def run() -> None:

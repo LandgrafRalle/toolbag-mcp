@@ -76,10 +76,10 @@ def process_name(hwnd: int) -> str:
         _kernel32.CloseHandle(handle)
 
 
-def find_toolbag() -> int | None:
-    """Handle of Toolbag's main window, None when Toolbag is not running."""
+def find_toolbag_windows() -> list[int]:
+    """Handles of all visible Toolbag main windows (one per running instance)."""
     if not IS_WINDOWS:
-        return None
+        return []
     found: list[int] = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -89,11 +89,16 @@ def find_toolbag() -> int | None:
         if (TITLE_FRAGMENT in buffer.value and _user32.IsWindowVisible(hwnd)
                 and process_name(hwnd) == PROCESS_NAME):
             found.append(hwnd)
-            return False
         return True
 
     _user32.EnumWindows(_visit, 0)
-    return found[0] if found else None
+    return found
+
+
+def find_toolbag() -> int | None:
+    """Handle of Toolbag's main window, None when Toolbag is not running."""
+    windows = find_toolbag_windows()
+    return windows[0] if windows else None
 
 
 def foreground() -> int | None:
