@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "toolbag-mcp"
+version = "0.1.0.dev0"
+description = "MCP server for Marmoset Toolbag 5: scene, materials, baker, lights and rendering as typed tools"
+readme = "README.md"
+requires-python = ">=3.10"
+# License and authors are decided by the project owner before the first release (see notes/STATUS.md).
+dependencies = [
+    "mcp>=2.3,<3",
+]
+keywords = ["marmoset", "toolbag", "mcp", "model-context-protocol", "baking", "3d"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+]
+
+[project.scripts]
+toolbag-mcp = "toolbag_mcp.cli:main"
+
+[project.urls]
+Repository = "https://github.com/LandgrafRalle/toolbag-mcp"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+# The Toolbag plugin lives in plugin/ at the repository root (it runs inside Toolbag, standard
+# library only). The wheel carries a copy at toolbag_mcp/plugin so that `toolbag-mcp install`
+# finds it after `uvx toolbag-mcp` as well as in a checkout.
+[tool.hatch.build.targets.wheel]
+packages = ["toolbag_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"plugin" = "toolbag_mcp/plugin"
+
+[tool.hatch.build.targets.sdist]
+include = ["toolbag_mcp", "plugin", "README.md", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# Percent formatting is used deliberately throughout (one style for plugin and package).
+ignore = ["UP031"]
+
+[tool.ruff.lint.per-file-ignores]
+# The plugin runs in Toolbag's own Python (3.12 in Toolbag 5, older in Toolbag 4) and keeps
+# percent formatting and classic syntax on purpose.
+"plugin/*" = ["UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

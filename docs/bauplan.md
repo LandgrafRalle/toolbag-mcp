@@ -29,16 +29,18 @@ freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Brue
   `POST /call` nimmt `{"action": "...", "params": {...}, "timeout": s}`. Jede Anfrage braucht
   den Pflicht-Header (`X-Toolbag-MCP: 1`), einen passenden `Host` und das Token des Starts.
   Browser koennen den Header nicht ohne Vorabanfrage senden, und der Server beantwortet keine.
-- Warteschlange: der Nebenthread legt Jobs ab, `mset.callbacks.onPeriodicUpdate` (in 5.x
-  zusaetzlich `onFrameUpdate` pruefen) arbeitet sie auf dem Hauptthread ab, denn `mset` ist
-  nicht threadsicher. Ergebnis als JSON, Fehler mit vollem Traceback, Zeitueberschreitung als
+- Warteschlange: der Nebenthread legt Jobs ab, `mset.callbacks.onPeriodicUpdate` (nur dieser
+  Callback, `onFrameUpdate` bleibt ungesetzt) arbeitet sie auf dem Hauptthread ab, denn
+  `mset` ist nicht threadsicher. Szenenwechsel laufen zweiphasig, sonst stuerzt 5.02 ab
+  (`pitfalls.md`). Ergebnis als JSON, Fehler mit vollem Traceback, Zeitueberschreitung als
   klare Antwort (der Job laeuft dann trotzdem noch zu Ende, so dokumentieren).
 - `actions.py`: benannte Aktionen mit Parameterpruefung (Werkzeugfamilien unten). Kein freier
   `exec`, ausser der Haken **Allow Python execution** im Fenster ist gesetzt (Standard aus,
   nicht persistent, gilt nur fuer diesen Start).
 - Fenster (`mset.UIWindow`): Status, Port, Zaehler, der Haken, Beenden. Ein Plugin lebt nur,
   solange es ein Fenster hat; `onShutdownPlugin` raeumt den Server ab.
-- Token: beim Start erzeugt und nach `~\.toolbag-mcp\token` geschrieben, **nie unter
+- Token: beim Start erzeugt und mit Port und PID nach `~\.toolbag-mcp\plugin.json`
+  geschrieben, **nie unter
   `%LOCALAPPDATA%`**: die Claude-Desktop-App ist ein Store-Paket, Schreibzugriffe ihrer Prozesse
   landen umgeleitet in `Packages\…\LocalCache` (Gedaechtnis Unreal Tools
   `claude-app-appdata-umleitung`); Toolbag aus dem Explorer schriebe woanders hin, als der
@@ -134,10 +136,11 @@ Namen pruefen.
 
 - **M0, erledigt am 29.10.2026:** Projekt angelegt (Startpaket, privates Repo), in beiden
   Projektlisten eingetragen, dieser Bauplan hierher gezogen.
-- **M1, Projekt-Chat, 1 bis 2 Sitzungen:** Plugin-Kern, Familien 1 bis 4, Server, Fokus,
-  `install`, Registrierung im Benutzer-Umfang. **Abnahme:** der Ketten-Ablauf (status,
-  Uebersicht, Low tauschen, Alpha Map, Rueckseiten, Bake) laeuft ueber MCP-Werkzeuge an einer
-  Testszene (Kopie; nie eine Szene in `X:\GameAssets` speichern); „Claude Bridge" ist dabei aus.
+- **M1, erledigt am 29.10.2026:** Plugin-Kern, Familien 1 bis 4, Server, Fokus, `install`,
+  `doctor`, Registrierung im Benutzer-Umfang. Abnahme bestanden: der Ketten-Ablauf (status,
+  Uebersicht, Quick Load, Cage, Bake, Alpha Map als Cutout, Rueckseiten, Low tauschen,
+  Probe-Bake, Speichern und Laden) lief ueber die Aktionen an einer neutralen Testszene,
+  „Claude Bridge" war aus. Belege und Abweichungen von der Referenz: `pitfalls.md`.
 - **M2:** Familien 5 bis 7, Ressourcen, Tests gegen ein `fake_mset` (ohne Toolbag), Doku der
   Fallen, `doctor`.
 - **M3:** Paketierung fuer `uvx`, README englisch (Install, Registrierung je Client, Fallen,

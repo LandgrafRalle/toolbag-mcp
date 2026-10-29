@@ -15,6 +15,12 @@ hoechstens acht Zeilen, kein Verlauf; was schon versucht wurde, steht in Git.
 
 ## Wartet auf dich
 
+### Plugin einmal ueber das Menue starten: DU
+**Was fehlt:** In Toolbag *Edit, Plugins, Refresh*, dann *Plugins, Toolbag MCP* anklicken und
+das Fenster ansehen (Port, Haken „Allow Python execution", Calls, Stop).
+**Warum es haengt:** Claude kann keinen Menueeintrag klicken; die Abnahme lief mit dem Plugin
+als Startskript. Die Junction liegt seit dem 29.10.2026 im Plugin-Ordner.
+
 ### Lizenz, Autorenname, Zeitpunkt der Veroeffentlichung: DU
 **Was fehlt:** deine Entscheidung zur Lizenz (Vorschlag MIT), zum Autorennamen im Repo und
 dazu, wann das Repo oeffentlich wird.
@@ -25,21 +31,23 @@ dazu, wann das Repo oeffentlich wird.
 
 ## Kann erledigt werden
 
-### Meilenstein M1: Plugin-Kern und erste Werkzeuge
-**Was fehlt:** `plugin/` (HTTP-Server im Nebenthread, Warteschlange auf `onPeriodicUpdate`,
-Fenster, Token, Haken fuer Python), `toolbag_mcp/` (MCP-Server ueber stdio, Fokus-Handhabung,
-`install|uninstall|verify`), Werkzeugfamilien 1 bis 4 (Diagnose, Szene, Materialien, Baker),
-Registrierung fuer Claude Code im Benutzer-Umfang.
-**Warum es haengt:** noch kein Code; laut Bauplan 1 bis 2 Sitzungen.
-**Abnahme:** der Ketten-Ablauf (status, Uebersicht, Low tauschen, Alpha Map, Rueckseiten, Bake)
-laeuft ueber MCP-Werkzeuge an einer Testszene (Kopie, nie in `X:\GameAssets` speichern);
-„Claude Bridge" ist dabei aus.
-**Einzelheiten:** `docs/bauplan.md`, Abschnitte Architektur, Werkzeugfamilien, Uebernahmeliste,
-Meilensteine
+### Meilenstein M2
+**Was fehlt:** Werkzeugfamilien 5 bis 7 (Licht, Sky, Fog, Kamera; Render; `execute_python`
+ist schon da), ein vollstaendigeres `fake_mset` fuer Tests der Aktionen ohne Toolbag,
+`docs/pitfalls.md` fortschreiben, `doctor` um die Punkte aus der Abnahme erweitern.
+**Einzelheiten:** `docs/bauplan.md`, Werkzeugfamilien und Meilensteine
+
+### Nachgelagert aus M1
+- Automatischer Re-Bake nach `baker.replace_low` verstehen: die Ausgaben wurden ohne
+  `bake()` neu geschrieben (`docs/pitfalls.md`, Baker).
+- Testdaten: `part_low_v2` mit nicht ueberlappenden UVs erzeugen, damit der Low-Tausch im
+  Bake sichtbar wird (`tests/make_test_assets.py`).
+- Toolbag 4 ungetestet; `getMapPath` gibt es erst ab 5.03 (Rueckfall rechnet den Pfad).
 
 ---
 
 ## Kleinkram und Beobachten
 
-- `mcp`-SDK: 2.x (`from mcp.server import MCPServer`) nehmen oder `mcp<2` pinnen; beim ersten
-  Code entscheiden und in `pyproject.toml` festhalten.
+- `mcp`-SDK auf 2.x (`<3`) gepinnt, Python ab 3.10; Toolbags Python ist 3.12.
+- Lange Bakes: reisst ein Werkzeugaufruf das Timeout des Clients, in Claude Code
+  `MCP_TOOL_TIMEOUT` hochsetzen.
