@@ -1,0 +1,23 @@
+# Shell-Skripte behalten Unix-Zeilenenden. Windows-Zeilenenden (CRLF) machen sie
+# unbrauchbar: der Kernel liest die erste Zeile als "#!/bin/sh\r" und sucht einen
+# Interpreter namens "sh\r" — Abbruch mit "bad interpreter" oder
+# "$'\r': command not found". Der Fehler tritt nicht beim Committen auf, sondern beim
+# naechsten frischen Checkout, und ist dann schwer zuzuordnen.
+*.sh text eol=lf
+
+# Ausfuehrbare Dateien OHNE Endung fallen durch das Muster oben und muessen einzeln
+# dastehen. Beispiel:
+# bin/starte-dienst text eol=lf
+
+# LAEUFT ALLES IN DIESEM PROJEKT AUF LINUX (Server, Einplatinenrechner, Container)?
+# Dann umgekehrt denken statt der Zeilen oben — alles LF, die Windows-Helfer ausgenommen:
+#   * text=auto eol=lf
+#   *.ps1 text eol=crlf
+#   *.cmd text eol=crlf
+# So gemacht in C:\Dev\homeserver. Begruendung dort in der Datei: Eine Liste von Endungen
+# uebersieht immer die Datei, an die niemand gedacht hat — dort waren es drei Skripte ohne
+# Endung, fuenf von systemd gestartete .py-Dateien und die Netzwerk-Konfiguration.
+
+# WARUM DIE DATEI NICHT REICHT, WENN SIE FEHLT: Ohne sie haengt alles an
+# core.autocrlf in der globalen Git-Konfiguration des PCs — einem Eintrag ausserhalb
+# des Repos. Diese Datei macht die Zusage vom Rechner unabhaengig.

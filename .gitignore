@@ -1,0 +1,24 @@
+# Python: Bytecode, Build-Ergebnisse, Umgebungen, Werkzeug-Caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Toolbag-Szenen und Bake-Ausgaben: Testszenen sind Kopien und bleiben auf der Platte
+*.tbscene
+*.tbmat
+*.tbbake
+
+# Lokale Claude-Einstellungen (nur dieser Rechner, nicht versionieren)
+.claude/settings.local.json
+
+# Editor und Windows
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
