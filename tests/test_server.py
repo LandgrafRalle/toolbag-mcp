@@ -37,6 +37,8 @@ def test_result_reaches_the_client(monkeypatch):
     assert result.is_error is False
     assert calls == [("status", None, srv.SHORT)]
     assert _payload(result)["toolbag_version"] == 5022
+    # dict[str, Any] return annotations give clients structured content; a bare dict does not
+    assert result.structured_content == {"toolbag_version": 5022, "objects": 4}
 
 
 def test_parameters_pass_through_and_omitted_ones_are_dropped(monkeypatch):
@@ -100,7 +102,7 @@ def test_tool_catalogue_and_annotations():
     def hint(tool, snake, camel):
         annotations = tool.annotations
         assert annotations is not None, tool.name
-        return getattr(annotations, snake, None) or getattr(annotations, camel, None)
+        return getattr(annotations, snake if hasattr(annotations, snake) else camel)
 
     by_name = {t.name: t for t in tools}
     assert hint(by_name["status"], "read_only_hint", "readOnlyHint") is True
