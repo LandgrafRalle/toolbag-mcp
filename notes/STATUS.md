@@ -21,23 +21,15 @@ das Fenster ansehen (Port, Haken „Allow Python execution", Calls, Stop).
 **Warum es haengt:** Claude kann keinen Menueeintrag klicken; die Abnahme lief mit dem Plugin
 als Startskript. Die Junction liegt seit dem 29.10.2026 im Plugin-Ordner.
 
-### Oeffentlich schalten, PyPI, interne Dateien: DU
-**Was fehlt:** dein Wort, wann das Repo oeffentlich wird; ob es auf PyPI soll (Konto noetig);
-ob die deutschen internen Dateien (`CLAUDE.md`, `docs/bauplan.md`, `docs/entwicklung.md`,
-diese Datei) im oeffentlichen Repo bleiben.
-**Warum es haengt:** v0.1.0 ist getaggt und als GitHub-Release angelegt, das Repo ist privat;
-oeffentlich und PyPI sind deine Entscheidung.
+### PyPI ja oder nein: DU
+**Was fehlt:** dein Wort, ob das Paket auf PyPI soll (Konto noetig, `uv publish`).
+**Warum es haengt:** ohne PyPI gilt fuer alle die Git-Form `uvx --from git+...`, das reicht;
+ein PyPI-Name ist aber nicht reserviert, solange niemand veroeffentlicht.
 **Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ---
 
 ## Kann erledigt werden
-
-### Oeffentlich schalten, sobald oben entschieden ist
-**Was fehlt:** `gh repo edit --visibility public`, danach Registrierung in Claude Code vom
-Checkout auf das Paket (`uvx --from git+...` oder nach PyPI `uvx toolbag-mcp`), README und
-`register` pruefen.
-**Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ### Nachgelagert aus M1 und M2
 - Automatischer Re-Bake nach `baker.replace_low` verstehen: die Ausgaben wurden ohne

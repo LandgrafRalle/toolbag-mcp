@@ -6,9 +6,8 @@
 MCP-Server fuer **Marmoset Toolbag 5**: ein Plugin in Toolbag nimmt Auftraege an, ein
 Python-Server aussen bietet sie MCP-Clients als 90 feste Werkzeuge an (Szene, Materialien,
 Baker, Licht, Kamera, Render). Freier Python-Code nur mit Haken im Plugin-Fenster.
-Nachfolger der privaten Bruecke in Unreal Tools. Soll **oeffentlich auf GitHub** erscheinen,
-ist noch privat. Stand 29.10.2026: v0.1.0 getaggt und als GitHub-Release angelegt (MIT,
-Autor LandgrafRalle); offen sind der Zeitpunkt der Veroeffentlichung und PyPI.
+Nachfolger einer privaten Bruecke des Nutzers. **Oeffentlich auf GitHub** seit dem
+29.10.2026 (MIT, Autor LandgrafRalle), Release v0.1.0; offen ist nur noch PyPI.
 
 ## Wo steht was
 
@@ -27,16 +26,18 @@ Diese Datei ist nur der Wegweiser, hier wird kein Inhalt wiederholt.
 
 ## Randbedingungen
 
-- **Wird oeffentlich.** Nichts aus dem Firmenkontext ins Repo: keine Goliath-Namen, keine
-  `X:\GameAssets`-Pfade, keine Skew-Masken, kein `fix_ao`; uebernommene Dateien vorher
-  pruefen. Name ohne „Marmoset" (Marke von Marmoset LLC).
+- **Ist oeffentlich.** Nichts aus dem Firmenkontext ins Repo, auch nicht in Commit-Nachrichten:
+  keine Asset-Namen, Pfade oder Spezialwerkzeuge aus dem Firmenprojekt des Nutzers (die
+  bleiben in seiner privaten Bruecke); uebernommene Dateien vorher pruefen. Name ohne
+  „Marmoset" (Marke von Marmoset LLC).
 - **Lizenz MIT, Copyright-Inhaber LandgrafRalle** (entschieden 29.10.2026), kein Klarname
-  im Repo. Oeffentlich schalten und PyPI nur auf Ansage des Nutzers.
-- **Nur ein Plugin darf `onPeriodicUpdate` setzen:** nie zusammen mit „Claude Bridge" oder
-  „Skew Masks" starten. Die Bruecke in Unreal Tools bleibt, bis der Unreal-Tools-Chat umsteigt.
+  im Repo. PyPI nur auf Ansage des Nutzers.
+- **Nur ein Plugin darf `onPeriodicUpdate` setzen:** nie zusammen mit der alten privaten
+  Bruecke oder einem anderen Update-Plugin starten (`doctor` nennt installierte). Die alte
+  Bruecke bleibt, bis ihr Projekt umsteigt.
 - **Freier Python-Code nur mit Freigabe des Nutzers:** der Haken ist standardmaessig aus und
   nicht persistent; der Server darf ihn nie umgehen.
-- **Testszenen sind Kopien,** nie in `X:\GameAssets` speichern. Testdaten liegen in
+- **Testszenen sind Kopien,** nie eine Szene des Firmenprojekts ueberschreiben. Testdaten liegen in
   `~\.toolbag-mcp\test\`, nicht unter `%TEMP%` (AppData ist fuer die Claude-App umgeleitet).
 - **Toolbag zum Testen:** eine Instanz, mit dem Plugin als Skriptargument gestartet, mit
   `toolbag.quit` beendet; `install` und alles unter `%LOCALAPPDATA%` nur von aussen (WMI).

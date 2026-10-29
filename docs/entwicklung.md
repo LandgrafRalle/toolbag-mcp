@@ -62,8 +62,8 @@ an Toolbag testet**. Was gerade offen ist, steht in `notes/STATUS.md`; fuer Nutz
 Plugin-Ordner oder Log gehen dann ueber einen WMI-Prozess von aussen, Testdaten liegen darum
 unter `~\.toolbag-mcp\test\` und nicht unter `%TEMP%`.
 
-⚠️ Nie zusammen mit „Claude Bridge" oder „Skew Masks" starten; `doctor` nennt sie. Nie eine
-Szene aus fremden Projekten als Testszene speichern, immer eine Kopie.
+⚠️ Nie zusammen mit einem anderen Plugin starten, das `onPeriodicUpdate` setzt; `doctor` nennt
+die installierten. Nie eine Szene aus fremden Projekten als Testszene speichern, immer eine Kopie.
 
 ---
 
@@ -100,10 +100,11 @@ weitere Version geht denselben Weg:
 3. Tag `vx.y.z` setzen und pushen, GitHub-Release mit den Dateien aus `dist/` und den
    Notizen aus dem CHANGELOG (`gh release create`).
 
-**Oeffentlich schalten** (einmalig, auf Ansage): vorher die deutschen internen Dateien
-(`CLAUDE.md`, `docs/bauplan.md`, `notes/STATUS.md`, diese Datei) auf Firmenpfade pruefen und
-entscheiden, ob sie bleiben; dann `gh repo edit --visibility public`. Danach gilt
-`uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp toolbag-mcp` fuer alle.
+**Oeffentlich** seit dem 29.10.2026 (`gh repo edit --visibility public`, vorher die deutschen
+internen Dateien von Firmenpfaden befreit; die Historie bis dahin traegt sie noch). Seitdem gilt
+`uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp toolbag-mcp` fuer alle. Die
+Registrierung in Claude Code bleibt absichtlich auf dem Checkout (`uv run --directory`): so
+laeuft immer der aktuelle Code.
 
 **PyPI** (optional, Konto noetig): `uv publish`; danach `register` und README auf
 `uvx toolbag-mcp` ohne Git-Zusatz pruefen.

@@ -3,23 +3,21 @@
 
 Stand 29.10.2026. Zielbild des Nutzers: ein vollwertiger MCP-Server fuer Marmoset Toolbag, der
 so viel wie moeglich der Python-Schnittstelle abdeckt, auf GitHub veroeffentlicht wird und
-freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Bruecke
-`X:\eg\Tools\toolbag-bridge\` (seit 24.09.2026; Beschluss in
-`X:\eg\Tools\docs\entscheidungen-toolbag.md`).
+freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Bruecke des
+Nutzers im Projekt Unreal Tools (seit 24.09.2026; Beschluss in dessen
+`docs/entscheidungen-toolbag.md`).
 
 ## Zielbild und Grenzen
 
-- Eigenes Projekt `C:\Dev\toolbag-mcp`, eigenes Git-Repo, GitHub zuerst **privat**
-  (`LandgrafRalle`), oeffentlich erst auf Ansage zum ersten Release. Name ohne „Marmoset"
-  (Marke von Marmoset LLC).
-- Nichts aus dem Firmenkontext: keine Goliath-Namen, keine `X:\GameAssets`-Pfade, keine
-  Skew-Masken, kein `fix_ao`. Das bleibt in Unreal Tools und haengt sich spaeter als
-  Erweiterung an.
+- Eigenes Projekt `C:\Dev\toolbag-mcp`, eigenes Git-Repo auf GitHub (`LandgrafRalle`), privat
+  bis zum ersten Release, oeffentlich seit dem 29.10.2026. Name ohne „Marmoset" (Marke von
+  Marmoset LLC).
+- Nichts aus dem Firmenkontext: keine Asset-Namen, Pfade oder Spezialwerkzeuge aus dem
+  Firmenprojekt. Das bleibt in Unreal Tools und haengt sich spaeter als Erweiterung an.
 - Toolbag 5.0x primaer (lokal 5.0.2.2; Referenz `marmoset.co/python/reference5.html`, Build
   5.03), 4.0x nach Moeglichkeit, macOS ungetestet. Toolbags Python ist 3.12 ohne pip und numpy.
 - Entschieden am 29.10.2026: Lizenz MIT, Copyright-Inhaber LandgrafRalle (GitHub-Name, kein
-  Klarname), Projektname toolbag-mcp. Entscheidungen des Nutzers bleiben der Zeitpunkt
-  privat zu oeffentlich und PyPI.
+  Klarname), Projektname toolbag-mcp, Repo oeffentlich. Entscheidung des Nutzers bleibt PyPI.
 
 ## Architektur: zwei Teile, ein Repo
 
@@ -97,13 +95,14 @@ freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Brue
 7. **`execute_python`:** mit Namensraum, der zwischen Aufrufen bleibt, und `result`-Variable wie
    die alte Bruecke; ohne Haken im Plugin kommt eine klare Ablehnung zurueck.
 
-## Fallen, die Code und Doku kennen muessen (belegt an 5.0.2, `X:\eg\Tools\toolbag-bridge\LIESMICH-api.md`)
+## Fallen, die Code und Doku kennen muessen (belegt an 5.0.2 in der privaten Bruecke, heute `pitfalls.md`)
 
 - **Nie `SubMeshObject.visible` setzen:** setzt ein Flag, nach dem Toolbag die ganze Szene
   koernig und Teile leer backt; am Mesh-Objekt fuehrte es beim Laden zum Absturz. Sichtbarkeit
   nur an Gruppen- und High/Low-Knoten; die Aktion muss das erzwingen.
 - **Nur ein Plugin darf `onPeriodicUpdate` setzen.** Zwei Plugins mit eigenem Callback legen
-  sich gegenseitig lahm. Das neue Plugin laeuft darum nie neben „Claude Bridge" oder „Skew Masks".
+  sich gegenseitig lahm. Das neue Plugin laeuft darum nie neben der alten Bruecke oder einem
+  anderen Update-Plugin.
 - **Fokus-Einfrieren,** siehe oben: ohne Vordergrund kein Timeout, einfach keine Antwort.
 - **`Material.getSubroutine` mit unbekanntem Namen wirft** (`IndexError` als `SystemError`); ein
   Material ohne Transparenz liefert `None`, erst `setSubroutine("transparency", "Cutout")`.
@@ -120,7 +119,7 @@ freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Brue
 - Die Doku nennt den Plugin-Ordner `data/plugins`, real ist es `data\plugin`; Nutzer-Plugins
   liegen unter `%LOCALAPPDATA%\Marmoset Toolbag 5\plugins`, nicht unter Dokumente.
 
-## Uebernahmeliste aus `X:\eg\Tools\toolbag-bridge\`
+## Uebernahmeliste aus der privaten Bruecke (Unreal Tools, `toolbag-bridge/`)
 
 | Quelle | Wird zu | Was raus muss |
 |---|---|---|
@@ -141,18 +140,18 @@ Namen pruefen.
   `doctor`, Registrierung im Benutzer-Umfang. Abnahme bestanden: der Ketten-Ablauf (status,
   Uebersicht, Quick Load, Cage, Bake, Alpha Map als Cutout, Rueckseiten, Low tauschen,
   Probe-Bake, Speichern und Laden) lief ueber die Aktionen an einer neutralen Testszene,
-  „Claude Bridge" war aus. Belege und Abweichungen von der Referenz: `pitfalls.md`.
+  die alte Bruecke war aus. Belege und Abweichungen von der Referenz: `pitfalls.md`.
 - **M2, erledigt am 29.10.2026:** Familien 5 bis 7 (dazu die generischen Griffe
   `object.attributes`, `object.set_attributes`, `object.create` fuer jedes Objekt), fuenf
   Ressourcen, `tests/fake_mset.py` mit Tests der Aktionen und des Plugin-Kerns ueber HTTP,
   `docs/pitfalls.md`, `doctor` erkennt Doppelinstanzen und fremde Portbelegung. Abnahme an
   Toolbag: Licht, Kamera mit Tiefenschaerfe, Sky laden, Fog, Render-Einstellungen, Bild
   rendern, Timeline.
-- **M3, erledigt am 29.10.2026 bis auf das Oeffentlichschalten:** Wheel mit Plugin
-  (`uv build`, Installation aus dem Wheel geprueft), README englisch, CHANGELOG, CI (Lint,
-  Tests, Build), LICENSE MIT, v0.1.0 getaggt und als GitHub-Release angelegt. Offen auf
-  Ansage des Nutzers: Repo oeffentlich, PyPI (`docs/entwicklung.md`, Release-Ablauf).
-- **Danach in Unreal Tools** (`X:\eg\Tools\notes\STATUS-toolbag.md`): Junction „Claude Bridge" raus,
+- **M3, erledigt am 29.10.2026:** Wheel mit Plugin (`uv build`, Installation aus dem Wheel
+  geprueft), README englisch, CHANGELOG, CI (Lint, Tests, Build), LICENSE MIT, v0.1.0 getaggt
+  und als GitHub-Release angelegt, Repo oeffentlich. Offen auf Ansage des Nutzers: PyPI
+  (`docs/entwicklung.md`, Release-Ablauf).
+- **Danach in Unreal Tools** (dessen `notes/STATUS-toolbag.md`): Junction der alten Bruecke raus,
   Skew-Fenster und `fix_ao` als Erweiterung an das neue Plugin oder ueber den freigegebenen
   Python-Weg, `tb.py` als duenner Client oder weg, Skill `ketten-plaettchen-maske` auf die
   MCP-Werkzeuge umschreiben, `toolbag-bridge/LIESMICH.md` und `docs/entscheidungen-toolbag.md`
