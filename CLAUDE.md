@@ -7,8 +7,8 @@ MCP-Server fuer **Marmoset Toolbag 5**: ein Plugin in Toolbag nimmt Auftraege an
 Python-Server aussen bietet sie MCP-Clients als 90 feste Werkzeuge an (Szene, Materialien,
 Baker, Licht, Kamera, Render). Freier Python-Code nur mit Haken im Plugin-Fenster.
 Nachfolger der privaten Bruecke in Unreal Tools. Soll **oeffentlich auf GitHub** erscheinen,
-ist bis zum ersten Release privat. Stand 29.10.2026: M3 vorbereitet (Wheel, englisches README,
-CI); offen sind Lizenz, Autorenname und der Release selbst.
+ist noch privat. Stand 29.10.2026: v0.1.0 getaggt und als GitHub-Release angelegt (MIT,
+Autor LandgrafRalle); offen sind der Zeitpunkt der Veroeffentlichung und PyPI.
 
 ## Wo steht was
 
@@ -30,8 +30,8 @@ Diese Datei ist nur der Wegweiser, hier wird kein Inhalt wiederholt.
 - **Wird oeffentlich.** Nichts aus dem Firmenkontext ins Repo: keine Goliath-Namen, keine
   `X:\GameAssets`-Pfade, keine Skew-Masken, kein `fix_ao`; uebernommene Dateien vorher
   pruefen. Name ohne „Marmoset" (Marke von Marmoset LLC).
-- **Entscheidungen des Nutzers:** Lizenz (Vorschlag MIT), Autorenname, Zeitpunkt der
-  Veroeffentlichung, PyPI ja oder nein. Bis dahin bleibt das Repo privat, ohne LICENSE-Datei.
+- **Lizenz MIT, Copyright-Inhaber LandgrafRalle** (entschieden 29.10.2026), kein Klarname
+  im Repo. Oeffentlich schalten und PyPI nur auf Ansage des Nutzers.
 - **Nur ein Plugin darf `onPeriodicUpdate` setzen:** nie zusammen mit „Claude Bridge" oder
   „Skew Masks" starten. Die Bruecke in Unreal Tools bleibt, bis der Unreal-Tools-Chat umsteigt.
 - **Freier Python-Code nur mit Freigabe des Nutzers:** der Haken ist standardmaessig aus und

@@ -130,4 +130,4 @@ architecture and milestones: [docs/bauplan.md](docs/bauplan.md).
 
 ## License
 
-Not chosen yet; the repository stays private until it is.
+[MIT](LICENSE), copyright (c) 2026 LandgrafRalle.

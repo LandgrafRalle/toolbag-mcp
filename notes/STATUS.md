@@ -21,22 +21,22 @@ das Fenster ansehen (Port, Haken „Allow Python execution", Calls, Stop).
 **Warum es haengt:** Claude kann keinen Menueeintrag klicken; die Abnahme lief mit dem Plugin
 als Startskript. Die Junction liegt seit dem 29.10.2026 im Plugin-Ordner.
 
-### Lizenz, Autorenname, Veroeffentlichung, PyPI: DU
-**Was fehlt:** deine Entscheidung zur Lizenz (Vorschlag MIT), zum Autorennamen im Repo, wann
-das Repo oeffentlich wird, ob es auf PyPI soll (Konto noetig), und ob die deutschen internen
-Dateien (`CLAUDE.md`, `docs/bauplan.md`, `docs/entwicklung.md`, diese Datei) im oeffentlichen
-Repo bleiben.
-**Warum es haengt:** alles andere fuer den Release ist vorbereitet; ohne Lizenz kein Release.
+### Oeffentlich schalten, PyPI, interne Dateien: DU
+**Was fehlt:** dein Wort, wann das Repo oeffentlich wird; ob es auf PyPI soll (Konto noetig);
+ob die deutschen internen Dateien (`CLAUDE.md`, `docs/bauplan.md`, `docs/entwicklung.md`,
+diese Datei) im oeffentlichen Repo bleiben.
+**Warum es haengt:** v0.1.0 ist getaggt und als GitHub-Release angelegt, das Repo ist privat;
+oeffentlich und PyPI sind deine Entscheidung.
 **Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ---
 
 ## Kann erledigt werden
 
-### Release 0.1.0, sobald oben entschieden ist
-**Was fehlt:** LICENSE und die Felder in `pyproject.toml`, Version 0.1.0, CHANGELOG
-umhaengen, Tag und GitHub-Release, Repo oeffentlich schalten, `register` und README auf
-`uvx toolbag-mcp` umstellen, Registrierung in Claude Code vom Checkout auf das Paket.
+### Oeffentlich schalten, sobald oben entschieden ist
+**Was fehlt:** `gh repo edit --visibility public`, danach Registrierung in Claude Code vom
+Checkout auf das Paket (`uvx --from git+...` oder nach PyPI `uvx toolbag-mcp`), README und
+`register` pruefen.
 **Einzelheiten:** `docs/entwicklung.md`, Abschnitt „Release-Ablauf"
 
 ### Nachgelagert aus M1 und M2

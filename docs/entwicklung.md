@@ -88,16 +88,22 @@ Szene aus fremden Projekten als Testszene speichern, immer eine Kopie.
 
 ---
 
-## Release-Ablauf (sobald Lizenz und Autorenname entschieden sind)
+## Release-Ablauf
 
-1. `LICENSE` anlegen, `license` und `authors` in `pyproject.toml` eintragen, README-Abschnitt
-   „License" ersetzen.
-2. Version in `pyproject.toml` und `toolbag_mcp/__init__.py` auf `0.1.0`, CHANGELOG-Abschnitt
-   „Unreleased" nach `[0.1.0] - Datum` umhaengen.
-3. `uv run pytest`, `uv build`, Commit, Tag `v0.1.0`, Push, GitHub-Release mit den Dateien aus
-   `dist/`.
-4. Repo oeffentlich schalten: vorher die deutschen internen Dateien (`CLAUDE.md`,
-   `docs/bauplan.md`, `notes/STATUS.md`, diese Datei) auf Firmenpfade pruefen und entscheiden,
-   ob sie bleiben.
-5. Optional `uv publish` (PyPI-Konto noetig); danach `register` und README auf
-   `uvx toolbag-mcp` ohne Git-Zusatz.
+Version 0.1.0 ist am 29.10.2026 so entstanden (MIT, Copyright-Inhaber LandgrafRalle); jede
+weitere Version geht denselben Weg:
+
+1. Version in `pyproject.toml` und `toolbag_mcp/__init__.py` setzen, `uv lock` (die Lockdatei
+   traegt die Projektversion, sonst scheitert `uv sync --locked` in der CI), CHANGELOG-Abschnitt
+   „Unreleased" nach `[x.y.z] - Datum` umhaengen.
+2. `uv run pytest`, `uv run ruff check .`, `uv build`, Commit, Push, CI abwarten.
+3. Tag `vx.y.z` setzen und pushen, GitHub-Release mit den Dateien aus `dist/` und den
+   Notizen aus dem CHANGELOG (`gh release create`).
+
+**Oeffentlich schalten** (einmalig, auf Ansage): vorher die deutschen internen Dateien
+(`CLAUDE.md`, `docs/bauplan.md`, `notes/STATUS.md`, diese Datei) auf Firmenpfade pruefen und
+entscheiden, ob sie bleiben; dann `gh repo edit --visibility public`. Danach gilt
+`uvx --from git+https://github.com/LandgrafRalle/toolbag-mcp toolbag-mcp` fuer alle.
+
+**PyPI** (optional, Konto noetig): `uv publish`; danach `register` und README auf
+`uvx toolbag-mcp` ohne Git-Zusatz pruefen.

@@ -4,11 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "toolbag-mcp"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "MCP server for Marmoset Toolbag 5: scene, materials, baker, lights and rendering as typed tools"
 readme = "README.md"
 requires-python = ">=3.10"
-# License and authors are decided by the project owner before the first release (see notes/STATUS.md).
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "LandgrafRalle" }]
 dependencies = [
     "mcp>=2.3,<3",
 ]

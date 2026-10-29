@@ -5,6 +5,10 @@ All notable changes to toolbag-mcp. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-29
+
+First release, built and tested against Marmoset Toolbag 5.0.2 on Windows.
+
 ### Added
 
 - Toolbag plugin (`plugin/`): loopback HTTP server with a per-start token, marker header and

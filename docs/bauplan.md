@@ -17,8 +17,9 @@ freien Python-Code nur mit seiner Freigabe ausfuehrt. Herkunft: die private Brue
   Erweiterung an.
 - Toolbag 5.0x primaer (lokal 5.0.2.2; Referenz `marmoset.co/python/reference5.html`, Build
   5.03), 4.0x nach Moeglichkeit, macOS ungetestet. Toolbags Python ist 3.12 ohne pip und numpy.
-- Entscheidungen des Nutzers, nicht meine: Lizenz (Vorschlag MIT) und Autorenname, Zeitpunkt
-  privat → oeffentlich, endgueltiger Projektname.
+- Entschieden am 29.10.2026: Lizenz MIT, Copyright-Inhaber LandgrafRalle (GitHub-Name, kein
+  Klarname), Projektname toolbag-mcp. Entscheidungen des Nutzers bleiben der Zeitpunkt
+  privat zu oeffentlich und PyPI.
 
 ## Architektur: zwei Teile, ein Repo
 
@@ -147,10 +148,10 @@ Namen pruefen.
   `docs/pitfalls.md`, `doctor` erkennt Doppelinstanzen und fremde Portbelegung. Abnahme an
   Toolbag: Licht, Kamera mit Tiefenschaerfe, Sky laden, Fog, Render-Einstellungen, Bild
   rendern, Timeline.
-- **M3, vorbereitet am 29.10.2026:** Wheel mit Plugin (`uv build`, Installation aus dem
-  Wheel geprueft), README englisch (Install, Registrierung je Client, Werkzeuge, Sicherheit),
-  CHANGELOG, CI (Lint, Tests, Build). Offen bis zur Ansage des Nutzers: LICENSE, Version
-  0.1.0, Release privat zu oeffentlich, PyPI (`docs/entwicklung.md`, Release-Ablauf).
+- **M3, erledigt am 29.10.2026 bis auf das Oeffentlichschalten:** Wheel mit Plugin
+  (`uv build`, Installation aus dem Wheel geprueft), README englisch, CHANGELOG, CI (Lint,
+  Tests, Build), LICENSE MIT, v0.1.0 getaggt und als GitHub-Release angelegt. Offen auf
+  Ansage des Nutzers: Repo oeffentlich, PyPI (`docs/entwicklung.md`, Release-Ablauf).
 - **Danach in Unreal Tools** (`X:\eg\Tools\notes\STATUS-toolbag.md`): Junction „Claude Bridge" raus,
   Skew-Fenster und `fix_ao` als Erweiterung an das neue Plugin oder ueber den freigegebenen
   Python-Weg, `tb.py` als duenner Client oder weg, Skill `ketten-plaettchen-maske` auf die
