@@ -6,14 +6,19 @@ block the protocol. Failures inside Toolbag come back as tool errors with the tr
 
 from __future__ import annotations
 
+import contextlib
+import os
+import time
+from pathlib import Path
 from typing import Any
 
 import anyio
+import numpy as np
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from . import __version__
+from . import __version__, skew, tbscene
 from .client import PluginError, PluginUnavailable, ToolbagClient
 
 INSTRUCTIONS = """Controls a running Marmoset Toolbag 5 through the Toolbag MCP plugin.
@@ -26,6 +31,8 @@ referenced by name; `baker` may be omitted when the scene has exactly one bake p
 Bake scenes: toggle visibility with `baker_set_visible` / `baker_isolate` (group, Low and
 High nodes), never on single meshes or submeshes, that corrupts bakes. Textures set through
 `material_set_texture` are re-read from disk. Imports, bakes and renders can take minutes.
+Edge protect (skew masks by edge rule instead of hand painting): `baker_skew_preview` to look,
+`baker_skew_apply` to write them into a new scene file.
 
 Lights, cameras, sky, fog and the render object are objects too: `object_attributes` shows
 every setting with its value, `object_set_attributes` changes them (nested settings as dicts
@@ -519,6 +526,123 @@ async def baker_replace_low(group: str, path: str, baker: Ref | None = None) -> 
     fixed topology) while keeping group, cage and material. Save the scene first if you rely
     on stored cage directions."""
     return await _call("baker.replace_low", _p(group=group, path=path, baker=baker), LONG)
+
+
+# ---------------------------------------------------------------- skew masks (edge protect)
+
+SKEW_DIR = Path.home() / ".toolbag-mcp" / "skew"  # Toolbag must read the previews: not %TEMP%
+MASK_SIZES = (512, 1024, 2048)  # 4096 would add 32 MB per mask to the scene file
+
+
+async def _skew_masks(groups: str | list[str] | None, baker: Ref | None, size: int,
+                      widths: tuple[float, float, float], bend_deg: float,
+                      soft_px: float) -> tuple[dict[str, Any], dict[str, tuple[str, Any, float]]]:
+    """Low mesh data from the plugin, masks computed here. Widths come in bake pixels."""
+    if size not in MASK_SIZES:
+        raise ToolError("mask_size must be one of %s" % (MASK_SIZES,))
+    data = await _call("baker.low_mesh_data", _p(groups=groups, baker=baker), LONG)
+    if not data["groups"]:
+        raise ToolError("No bake group with low meshes in %s" % data["baker"])
+    k = size / float(data["output_width"] or size)
+    seam_px, hard_px, bend_px = (w * k for w in widths)
+
+    def compute() -> dict[str, tuple[str, Any, float]]:
+        out = {}
+        for name, meshes in data["groups"].items():
+            arrays = [skew.MeshArrays.from_plugin(m) for m in meshes]
+            mask, covered = skew.edge_mask(arrays, size, seam_px, hard_px, bend_px, bend_deg,
+                                           soft_px * k)
+            share = float((mask[covered] >= 128).mean() * 100) if covered.any() else 0.0
+            out[name] = (meshes[0]["name"], mask, round(share, 1))
+        return out
+
+    return data, await anyio.to_thread.run_sync(compute)
+
+
+def _skew_report(data: dict[str, Any], masks: dict[str, tuple[str, Any, float]],
+                 size: int) -> dict[str, Any]:
+    return {"baker": data["baker"], "mask_size": size,
+            "bake_pixels_per_mask_pixel": round(data["output_width"] / size, 2),
+            "groups": {name: {"low_mesh": low, "averaged_percent": share}
+                       for name, (low, _mask, share) in masks.items()}}
+
+
+@server.tool(annotations=WRITE)
+async def baker_skew_preview(groups: str | list[str] | None = None, seam_px: float = 8.0,
+                             hard_px: float = 8.0, bend_px: float = 8.0, bend_deg: float = 8.0,
+                             soft_px: float = 0.0, mask_size: int = 1024,
+                             baker: Ref | None = None) -> dict[str, Any]:
+    """Edge protect: compute skew masks by edge rule and show them as base colour on the low
+    materials (black = averaged cage, white = corrected). Full correction everywhere except
+    bands along UV seams and open borders (`seam_px`), hard edges (`hard_px`) and soft edges
+    bending more than `bend_deg` degrees (`bend_px`); widths in bake pixels, 0 switches a
+    band off, `soft_px` adds a falloff. Nothing is written into the scene: check the look,
+    adjust, then baker_skew_apply. baker_skew_clear_preview restores the materials."""
+    data, masks = await _skew_masks(groups, baker, mask_size, (seam_px, hard_px, bend_px),
+                                    bend_deg, soft_px)
+    SKEW_DIR.mkdir(parents=True, exist_ok=True)
+    for old in SKEW_DIR.glob("preview_*.png"):
+        with contextlib.suppress(OSError):
+            old.unlink()
+    combined = None
+    for _low, mask, _share in masks.values():
+        combined = mask if combined is None else np.minimum(combined, mask)
+    # A new name per preview: Toolbag caches textures by path.
+    path = SKEW_DIR / ("preview_%d.png" % time.time_ns())
+    skew.write_png_gray(str(path), 255 - combined)
+    shown = await _call("baker.skew_preview", _p(path=path.as_posix(), groups=groups,
+                                                  baker=baker))
+    return {**_skew_report(data, masks, mask_size), "preview": shown["preview"],
+            "materials": shown["materials"]}
+
+
+@server.tool(annotations=WRITE)
+async def baker_skew_clear_preview() -> dict[str, Any]:
+    """End the skew mask preview: the low materials get their albedo map and colour back."""
+    return await _call("baker.skew_preview_clear")
+
+
+@server.tool(annotations=WRITE)
+async def baker_skew_apply(path: str | None = None, groups: str | list[str] | None = None,
+                           seam_px: float = 8.0, hard_px: float = 8.0, bend_px: float = 8.0,
+                           bend_deg: float = 8.0, soft_px: float = 0.0, mask_size: int = 1024,
+                           baker: Ref | None = None) -> dict[str, Any]:
+    """Edge protect: write skew masks by edge rule (see baker_skew_preview, same parameters)
+    into the bake groups. The Python API cannot set skew masks, so the scene is saved as a
+    new file, the masks go into that file and Toolbag loads it. `path` is that new file
+    (never overwritten); default `<scene>_skew.tbscene` next to the current scene, which then
+    must have been saved once. The original scene file stays untouched."""
+    data, masks = await _skew_masks(groups, baker, mask_size, (seam_px, hard_px, bend_px),
+                                    bend_deg, soft_px)
+    if path:
+        target = os.path.abspath(os.path.expanduser(path)).replace("\\", "/")
+        if not target.lower().endswith(".tbscene"):
+            raise ToolError("path must end in .tbscene")
+        if os.path.exists(target):
+            raise ToolError("%s exists; skew masks are only written into a new file" % target)
+    else:
+        scene = (await _call("scene.info"))["path"]
+        if not scene:
+            raise ToolError("The scene has no file yet: save it once or pass 'path'")
+        target = tbscene.new_skew_path(scene)
+    await _call("baker.skew_preview_clear")  # the preview must not end up in the file
+    await _call("scene.save", {"path": target}, LONG)
+
+    def patch() -> None:
+        with open(target, "rb") as handle:
+            content = handle.read()
+        for _group, (low, mask, _share) in masks.items():
+            content = tbscene.write_skew(content, low, mask.tobytes())
+        with open(target, "r+b") as handle:  # just written by Toolbag for this call
+            handle.write(content)
+            handle.truncate()
+
+    try:
+        await anyio.to_thread.run_sync(patch)
+    except (KeyError, IndexError, ValueError) as exc:
+        raise ToolError("Saved %s but could not set the masks: %s" % (target, exc)) from exc
+    loaded = await _call("scene.load", {"path": target}, LONG)
+    return {**_skew_report(data, masks, mask_size), "scene": loaded.get("path", target)}
 
 
 # ---------------------------------------------------------------- any object's attributes

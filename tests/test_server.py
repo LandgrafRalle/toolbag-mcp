@@ -95,7 +95,7 @@ def test_tool_catalogue_and_annotations():
 
     tools = anyio.run(go)
     names = {t.name for t in tools}
-    assert len(names) == 90
+    assert len(names) == 93
     assert {"status", "scene_load", "baker_bake", "material_set_cutout", "execute_python",
             "toolbag_quit", "light_create", "camera_set", "render_image", "timeline_set"} <= names
 

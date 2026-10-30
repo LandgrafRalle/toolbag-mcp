@@ -11,8 +11,9 @@ Rules the actions enforce, learned the hard way on Toolbag 5.0.2 (docs/bauplan.m
 * ``SubMeshObject.visible`` is never set: Toolbag then bakes the whole scene grainy and
   single parts empty. ``MeshObject.visible`` only with ``allow_mesh``: in bake scenes that
   flag has crashed Toolbag on load. Toggle groups and the bake project's High/Low nodes.
-* ``MeshObject.mesh`` is read only where unavoidable (``baker.replace_low``): reading it and
-  saving afterwards writes low meshes without their cage direction attribute.
+* ``MeshObject.mesh`` is read only where unavoidable (``baker.replace_low``,
+  ``baker.low_mesh_data``): reading it and saving afterwards writes low meshes without their
+  cage direction attribute, which Toolbag recomputes on load.
 * Textures are replaced by clearing the field first, so Toolbag re-reads a changed file.
 * ``Material.getSubroutine`` raises for unknown slot names and returns None for empty slots;
   both are wrapped into clear errors.
@@ -369,6 +370,7 @@ def prepare_scene_op(name, params):
     except TypeError as exc:
         raise ActionError("%s: %s. Parameters: %s(%s)"
                           % (name, exc, name, _param_list(fn))) from None
+    _SKEW_PREVIEW.clear()  # the materials it remembers belong to the scene being replaced
     if name == "scene.new":
         return mset.newScene
     path = _existing_file(bound.arguments["path"])
@@ -389,7 +391,8 @@ def scene_save(path=None):
         path = mset.getScenePath()
         if not path:
             raise ActionError("The scene has no file yet: pass 'path'")
-    mset.saveScene(path)
+    # Backslashes break Toolbag's autosave: it then appends the whole path to its folder.
+    mset.saveScene(path.replace("\\", "/"))
     return {"path": mset.getScenePath()}
 
 
@@ -1395,6 +1398,83 @@ def baker_replace_low(group, path, baker=None):
                 pass
     return {"group": group, "mesh": _ref(target), "vertices": vertices,
             "u_range": [min(us), max(us)] if us else None, "same_transform": same_place}
+
+
+# ---------------------------------------------------------------- skew masks (edge protect)
+# The masks themselves are computed by the MCP server and written into the scene file: the
+# Python API has no access to them. Here only the low mesh data and the preview.
+
+_SKEW_PREVIEW = {}  # material name -> (albedo map, color) as they were before the preview
+
+
+def _low_meshes(baker, groups):
+    out = {}
+    for name, part in _select_groups(baker, groups).items():
+        meshes = _meshes_under(part["low"]) if part["low"] is not None else []
+        if meshes:
+            out[name] = meshes
+    return out
+
+
+@action("baker.low_mesh_data")
+def baker_low_mesh_data(groups=None, baker=None):
+    """Geometry of the low meshes per bake group, for the skew mask computation: vertices,
+    normals, uvs and triangles as flat lists, plus the bake size. Reading mesh data marks
+    the cage directions for re-computation, which Toolbag does on the next scene load."""
+    baker = _baker(baker)
+    out = {}
+    for name, meshes in _low_meshes(baker, groups).items():
+        out[name] = []
+        for mesh_object in meshes:
+            mesh = mesh_object.mesh
+            out[name].append({"name": mesh_object.name, "vertices": list(mesh.vertices),
+                              "normals": list(mesh.normals), "uvs": list(mesh.uvs),
+                              "triangles": list(mesh.triangles)})
+    return {"baker": baker.name, "output_width": baker.outputWidth,
+            "output_height": baker.outputHeight, "groups": out}
+
+
+@action("baker.skew_preview")
+def baker_skew_preview(path, groups=None, baker=None):
+    """Show an image as base colour on the materials of the low meshes (all groups when
+    omitted). The previous albedo map and colour are kept; baker.skew_preview_clear puts
+    them back."""
+    path = _existing_file(path)
+    baker = _baker(baker)
+    materials = {}
+    for meshes in _low_meshes(baker, groups).values():
+        for mesh in meshes:
+            for sub in mesh.getChildren():
+                if isinstance(sub, mset.SubMeshObject) and sub.material is not None:
+                    materials[sub.material.name] = sub.material
+    for name, material in materials.items():
+        albedo = _subroutine(material, "albedo")
+        if name not in _SKEW_PREVIEW:
+            _SKEW_PREVIEW[name] = (albedo.getField("Albedo Map"), albedo.getField("Color"))
+        albedo.setField("Albedo Map", None)
+        albedo.setField("Albedo Map", mset.Texture(path))
+        albedo.setField("Color", [1.0, 1.0, 1.0])
+    return {"preview": path, "materials": sorted(materials)}
+
+
+def skew_preview_restore():
+    """Put back what baker.skew_preview replaced; also called when the plugin shuts down."""
+    restored = []
+    for name, (texture, color) in list(_SKEW_PREVIEW.items()):
+        hits = [m for m in mset.getAllMaterials() if m.name == name]
+        if hits:
+            albedo = _subroutine(hits[0], "albedo")
+            albedo.setField("Albedo Map", texture)
+            albedo.setField("Color", color)
+            restored.append(name)
+    _SKEW_PREVIEW.clear()
+    return restored
+
+
+@action("baker.skew_preview_clear")
+def baker_skew_preview_clear():
+    """End the skew mask preview: the low materials get their albedo map and colour back."""
+    return {"restored": skew_preview_restore()}
 
 
 # ---------------------------------------------------------------- generic attributes

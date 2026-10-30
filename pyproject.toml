@@ -13,6 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "LandgrafRalle" }]
 dependencies = [
     "mcp>=2.3,<3",
+    "numpy>=1.24",
 ]
 keywords = ["marmoset", "toolbag", "mcp", "model-context-protocol", "baking", "3d"]
 classifiers = [

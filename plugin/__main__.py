@@ -361,7 +361,7 @@ def _start_server(port):
     print(LOG_PREFIX + "listening on 127.0.0.1:%d (plugin %s)" % (port, PLUGIN_VERSION))
 
 
-def _stop_server():
+def _stop_server(window_alive=True):
     global _server
     srv = _server
     _server = None
@@ -372,7 +372,8 @@ def _stop_server():
             srv.shutdown()
             srv.server_close()
         threading.Thread(target=_close, daemon=True).start()
-        _lbl_status.text = "Stopped"
+        if window_alive:
+            _lbl_status.text = "Stopped"
         print(LOG_PREFIX + "stopped.")
 
 
@@ -395,7 +396,19 @@ def _on_allow_change():
 
 
 def _on_shutdown():
-    _stop_server()
+    # Also reached through the window's close button, when Toolbag is already tearing the
+    # window down: touching a label then crashes Toolbag (access violation). Unhook the
+    # callbacks first so no later tick reaches the dead window either.
+    for name in ("onPeriodicUpdate", "onShutdownPlugin"):
+        try:
+            setattr(mset.callbacks, name, None)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        tbmcp_actions.skew_preview_restore()
+    except Exception:  # noqa: BLE001  (the scene may be gone already)
+        pass
+    _stop_server(window_alive=False)
 
 
 def _on_stop_click():
