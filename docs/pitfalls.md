@@ -8,11 +8,23 @@ build 5.03.
 
 ## Running plugin code
 
-- **Toolbag runs Python only while its window has focus.** Not just `onPeriodicUpdate`: a
-  plugin's background threads freeze too, so an HTTP request to the plugin does not time
-  out, it simply never returns. The MCP server therefore brings Toolbag to the front for
-  the duration of every call (`toolbag_mcp/focus.py`), finding the window by process name
-  (`toolbag.exe`), because browser tabs can carry the same title.
+- **Toolbag runs Python at full speed only while its window has focus.** Not just
+  `onPeriodicUpdate`: a plugin's background threads slow down too, the HTTP thread
+  included. Measured 30.10.2026 with the window visible on another monitor: a read-only
+  call took 2.5 to 3.6 s in the background (once 12 s); posting window messages (`WM_NULL`,
+  `WM_MOUSEMOVE`, redraws) gained half a second at most. Earlier runs, presumably minimized
+  or covered, never answered. An action, once started, runs to its end inside one callback,
+  focus or not. The client therefore brings Toolbag forward only while a call waits, only
+  after 1.5 s without user input (`GetLastInputInfo`; the Alt press that makes Windows
+  accept the switch counts as input and is left out), and hands the focus back once the
+  plugin reports the action running (`~/.toolbag-mcp/job.json`): `toolbag_mcp/focus.py`.
+  The window is found by process name (`toolbag.exe`), because browser tabs can carry the
+  same title.
+- **While Toolbag is busy, the plugin's port fills up.** Loading a large scene stops all
+  plugin threads; connections then wait in the socket's backlog, which is 5 by default in
+  `socketserver`, and every further connection is refused (`WinError 10061`), so the port
+  looks dead although Toolbag runs (30.10.2026). The plugin sets the queue to 64; the client
+  tells "busy" from "gone" by the process id in `plugin.json`.
 - **Only one plugin may set `mset.callbacks.onPeriodicUpdate`.** Two plugins with their own
   callback stop each other; chaining did not help (24.09.2026). Never run Toolbag MCP next
   to another such plugin. `toolbag-mcp doctor` lists installed plugins that use the callback.
@@ -22,6 +34,17 @@ build 5.03.
   statement of a tick and reports the new scene in the next tick (`plugin/__main__.py`,
   `_drain`). `onFrameUpdate` is not used at all; `onPeriodicUpdate` ("a few times per
   second") is enough.
+- **`newScene()` can still crash on a large scene** (30.10.2026, access violation at
+  `toolbag.exe+0xaa8754`): a bake scene with 334 meshes and a 790 MB file, freshly loaded
+  with skew masks, baked into two 4096 texture sets, then saved. Five `newScene` calls on
+  the same scene that day passed, one of them after the same load and bake, so it is not a
+  fixed sequence. The same address crashed a load of a hand-patched scene file on
+  24.09.2026, so it lies in Toolbag's own scene teardown, not in Python. Nine minutes
+  earlier Windows had reported "out of virtual memory" and Toolbag died in the graphics
+  driver: little free commit is the likely trigger. Save before `scene.new`/`scene.load`
+  on large scenes and restart Toolbag between heavy rebuilds. Toolbag empties its
+  `log.txt` at every start; the trace is in the Windows event log (Application, "Application
+  Error", plus a WER report under `C:\ProgramData\Microsoft\Windows\WER\ReportArchive`).
 - **`http.server` sets `allow_reuse_address`, and on Windows that lets a second plugin
   instance bind the same port.** Requests then land in whichever instance accepted first,
   and the one that is not in front never answers. The plugin sets it to False, so a second

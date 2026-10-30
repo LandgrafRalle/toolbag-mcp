@@ -138,6 +138,34 @@ def test_scene_operations_take_two_ticks(plugin, tmp_path):
     assert payload["ok"] is False and "File not found" in payload["error"]["message"]
 
 
+def test_job_file_names_the_running_action(plugin):
+    job_file = plugin.home / ".toolbag-mcp" / "job.json"
+    box = {}
+
+    def _post():
+        box["result"] = _request(plugin, "POST", "/call", {"action": "scene.new", "params": {},
+                                                           "timeout": 5, "id": "abc123"})
+
+    worker = threading.Thread(target=_post)
+    worker.start()
+    worker.join(0.3)
+    plugin._drain()               # tick 1: the scene operation runs
+    job = json.loads(job_file.read_text())
+    assert job["id"] == "abc123" and job["state"] == "running" and job["action"] == "scene.new"
+    plugin._drain()
+    worker.join(5)
+    assert box["result"][1]["ok"] is True
+    assert json.loads(job_file.read_text())["state"] == "done"
+    _call(plugin, "scene.info")   # no id: the file keeps naming the last job that had one
+    assert json.loads(job_file.read_text())["id"] == "abc123"
+    status, payload = _request(plugin, "POST", "/call",
+                               {"action": "scene.info", "params": {}, "id": 5})
+    assert status == 400 and "'id'" in payload["error"]["message"]
+    assert plugin._Server.request_queue_size >= 32
+    plugin._stop_server()
+    assert not job_file.exists()
+
+
 def test_python_switch_and_quit(plugin):
     status, payload = _call(plugin, "python.exec", {"code": "result = 1"})
     assert payload["ok"] is False and "disabled" in payload["error"]["message"]

@@ -113,13 +113,15 @@ async def scene_info() -> dict[str, Any]:
 
 @server.tool(annotations=DESTRUCTIVE)
 async def scene_new() -> dict[str, Any]:
-    """New empty scene. Unsaved changes are lost without a prompt."""
+    """New empty scene. Unsaved changes are lost without a prompt. Save a large scene
+    first: Toolbag 5.0.2 has crashed here on big bake scenes."""
     return await _call("scene.new")
 
 
 @server.tool(annotations=DESTRUCTIVE)
 async def scene_load(path: str, download_missing_library_assets: bool = False) -> dict[str, Any]:
-    """Load a .tbscene file. Unsaved changes in the current scene are lost without a prompt."""
+    """Load a .tbscene file. Unsaved changes in the current scene are lost without a prompt;
+    save a large scene first (Toolbag 5.0.2 has crashed tearing big bake scenes down)."""
     params = {"path": path,
               "download_missing_library_assets": download_missing_library_assets}
     return await _call("scene.load", params, LONG)

@@ -12,6 +12,19 @@ All notable changes to toolbag-mcp. The format follows [Keep a Changelog](https:
   `register` prints the matching command for a checkout, an installed `toolbag-mcp` or
   `uvx --from git+...`.
 - The maintainer's German working notes are no longer part of the repository.
+- Focus handling no longer interrupts typing in other windows: Toolbag is brought forward
+  only after 1.5 s without keyboard or mouse input, the focus goes back as soon as a longer
+  action runs (the plugin reports it in `~/.toolbag-mcp/job.json`), and a window the user
+  picked during a call keeps the focus.
+- The plugin's connection queue holds 64 instead of 5, so a busy Toolbag (loading a large
+  scene) no longer refuses connections.
+- Clearer errors: "busy" when Toolbag runs but does not accept connections, "no longer
+  running" when its process is gone, also when it vanishes during a call.
+
+### Added
+
+- `ToolbagClient.holding_focus()` (and `focus.holding()`): keep Toolbag in front across
+  several calls and hand the focus back once at the end.
 
 ## [0.1.0] - 2026-10-29
 

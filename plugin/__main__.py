@@ -7,8 +7,11 @@ How it works
 * Requests are queued; ``mset.callbacks.onPeriodicUpdate`` drains the queue on Toolbag's
   main thread, because ``mset`` is not thread safe. Scene operations (new, load) run as the
   last thing of a tick and report in the next one: Toolbag 5.02 crashes otherwise.
-* Toolbag only runs these callbacks while its window has focus. A request then simply
-  waits; the MCP server brings Toolbag to the front for the duration of a call.
+* Toolbag runs these callbacks at full speed only while its window has focus; in the
+  background a request waits seconds, minimized possibly for good. The MCP server brings
+  Toolbag forward while a call waits, and hands the focus back once the action runs: the
+  plugin names the running action in ``~/.toolbag-mcp/job.json`` (``id`` from the request,
+  ``state`` running or done).
 * Every request must carry ``X-Toolbag-MCP: 1``, ``X-Toolbag-MCP-Token: <token>`` and a
   ``Host`` of 127.0.0.1 or localhost. Browsers cannot send custom headers without a CORS
   preflight, and this server answers no preflight, so web pages cannot reach it.
@@ -22,7 +25,7 @@ Endpoints
 ---------
 ``GET /``          plugin status (no scene access, safe from any thread)
 ``GET /actions``   catalogue of actions with parameters and docstrings
-``POST /call``     ``{"action": "scene.info", "params": {...}, "timeout": 60}`` ->
+``POST /call``     ``{"action": "scene.info", "params": {...}, "timeout": 60, "id": "..."}`` ->
                    ``{"ok": true, "result": ..., "log": "<stdout>", "ms": 12}`` or
                    ``{"ok": false, "error": {"type", "message", "traceback"}, ...}``
 
@@ -54,6 +57,7 @@ HEADER_TOKEN = "X-Toolbag-MCP-Token"
 STATE_DIR = os.path.join(os.path.expanduser("~"), ".toolbag-mcp")
 STATE_FILE = os.path.join(STATE_DIR, "plugin.json")
 CONFIG_FILE = os.path.join(STATE_DIR, "config.json")
+JOB_FILE = os.path.join(STATE_DIR, "job.json")
 MAX_BODY = 1 << 20  # 1 MiB of JSON is plenty for parameters
 LOG_PREFIX = "[Toolbag MCP] "
 
@@ -102,11 +106,12 @@ def _read_port():
 # ---------------------------------------------------------------- state and job queue
 
 class _Job(object):
-    __slots__ = ("action", "params", "done", "result", "started")
+    __slots__ = ("action", "params", "id", "done", "result", "started")
 
-    def __init__(self, action, params):
+    def __init__(self, action, params, job_id=None):
         self.action = action
         self.params = params
+        self.id = job_id
         self.done = threading.Event()
         self.result = None
         self.started = time.time()
@@ -147,8 +152,24 @@ def _run_job(job):
     return payload
 
 
+def _mark(job, state):
+    """Name the job in JOB_FILE: the client hands the focus back while an action runs. Only
+    jobs that brought an id; a failed write costs the client nothing but the hand-back."""
+    if not job.id:
+        return
+    try:
+        tmp = JOB_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump({"id": job.id, "action": job.action, "state": state,
+                       "pid": os.getpid()}, handle)
+        os.replace(tmp, JOB_FILE)
+    except OSError:
+        pass
+
+
 def _complete(job, payload):
     global _calls
+    _mark(job, "done")
     job.result = payload
     job.done.set()
     _calls += 1
@@ -199,8 +220,10 @@ def _drain():
                 continue
             job.started = time.time()
             _scene_job = job
+            _mark(job, "running")
             operation()
             return
+        _mark(job, "running")
         _complete(job, _run_job(job))
 
 
@@ -285,21 +308,25 @@ class _Handler(BaseHTTPRequestHandler):
             action = data["action"]
             params = data.get("params") or {}
             timeout = float(data.get("timeout", 60))
+            job_id = data.get("id")
             if not isinstance(action, str) or not isinstance(params, dict):
                 raise ValueError("'action' must be a string and 'params' an object")
+            if job_id is not None and not (isinstance(job_id, str) and 0 < len(job_id) <= 64):
+                raise ValueError("'id' must be a string of 1 to 64 characters")
         except Exception as exc:  # noqa: BLE001
             return self._error(400, "BadRequest", str(exc))
         if _server is None:
             return self._error(503, "PluginStopped", "the plugin is shutting down")
-        job = _Job(action, params)
+        job = _Job(action, params, job_id)
         _jobs.put(job)
         if job.done.wait(timeout):
             return self._send(200, job.result)
         return self._send(200, {
             "ok": False, "log": "", "ms": int(timeout * 1000),
             "error": {"type": "Timeout", "message": (
-                "No result after %.0f s. Toolbag only runs plugin code while its window has "
-                "focus; the action still completes later, its result is discarded." % timeout)}})
+                "No result after %.0f s. Toolbag runs plugin code at full speed only while its "
+                "window has focus, and not at all while it is minimized or busy; the action "
+                "still completes later, its result is discarded." % timeout)}})
 
     def log_message(self, fmt, *args):
         pass  # keep Toolbag's log clean
@@ -310,6 +337,10 @@ class _Server(ThreadingHTTPServer):
     # http.server defaults this to True; on Windows that lets a second plugin instance bind
     # the same port silently, and requests then land in whichever instance. Fail loudly.
     allow_reuse_address = False
+    # While Toolbag is busy (loading a large scene) the plugin's threads stand still and new
+    # connections wait in the socket's queue; with the default of 5 the port then refuses
+    # connections and looks dead.
+    request_queue_size = 64
 
     def handle_error(self, request, client_address):
         # A client that gave up (timeout) closes its socket before the answer is written;
@@ -342,10 +373,11 @@ def _remove_state():
     except (OSError, ValueError, AttributeError):
         mine = False
     if mine:
-        try:
-            os.remove(STATE_FILE)
-        except OSError:
-            pass
+        for path in (STATE_FILE, JOB_FILE):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
 
 def _start_server(port):

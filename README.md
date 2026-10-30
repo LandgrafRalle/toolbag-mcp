@@ -18,8 +18,24 @@ Two parts, one package:
 - **The MCP server** (`toolbag_mcp`) that runs outside Toolbag, talks to the plugin over
   HTTP and exposes the actions as MCP tools over stdio.
 
-Toolbag only runs plugin code while its window has focus, so the server brings Toolbag to
-the front for the duration of each call and hands the focus back afterwards (Windows).
+Toolbag runs plugin code at full speed only while its window has focus. So the server
+brings Toolbag forward while a call waits for it (Windows), but stays out of your way: it
+switches only after 1.5 s without keyboard or mouse input, hands the focus back as soon as
+a longer action is running, and never takes it from a window you picked during the call.
+While you type, the call waits; a visible Toolbag answers in the background too, only
+slower (seconds per call).
+
+Scripts that use the client directly can keep Toolbag in front across many calls instead of
+flashing it for each one:
+
+```python
+from toolbag_mcp.client import ToolbagClient
+
+client = ToolbagClient()
+with client.holding_focus():
+    for name in ("a", "b", "c"):
+        client.call("object.get", {"ref": name})
+```
 
 ## Requirements
 
@@ -116,8 +132,14 @@ From the shell: `toolbag-mcp actions` lists every action with its parameters,
 ## Troubleshooting
 
 - `toolbag-mcp doctor` first.
-- No answer: Toolbag must not sit behind a modal dialog; the plugin only runs while Toolbag
-  has focus (the server takes care of that; `TOOLBAG_MCP_NO_FOCUS=1` turns it off).
+- No answer: Toolbag must not sit behind a modal dialog or be minimized. While you keep
+  typing, calls wait for a pause (see above); `TOOLBAG_MCP_NO_FOCUS=1` turns the focus
+  handling off entirely, calls then rely on Toolbag answering in the background.
+- "Nothing accepts connections" while Toolbag runs: it is busy (loading or saving a large
+  scene stops the plugin for that time). "No longer running": Toolbag closed or crashed;
+  Windows records crashes in the event log (Application, source "Application Error").
+- Save before `scene_new` or `scene_load` on large scenes: Toolbag 5.0.2 has crashed in
+  `newScene` there (see [docs/pitfalls.md](docs/pitfalls.md)).
 - A second Toolbag instance cannot bind the port; its plugin window says so.
 - Never run Toolbag MCP together with another plugin that sets `onPeriodicUpdate`
   (`doctor` lists them): Toolbag then runs neither.
