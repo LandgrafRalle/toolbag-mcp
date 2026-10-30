@@ -52,6 +52,10 @@ build 5.03.
 - **A plugin lives as long as it has a window.** `onShutdownPlugin` runs when the user closes
   it; the plugin removes its state file there. A plugin restarted inside the same Toolbag
   session keeps old modules in `sys.modules`, hence the `importlib.reload` at start.
+- **Closing the window with its title bar X runs `onShutdownPlugin` while the window is
+  being torn down:** writing to one of its UI elements there crashed Toolbag every time
+  (30.10.2026); a Stop button that calls `shutdownPlugin()` itself does not. The handler
+  therefore unhooks the callbacks first and touches no UI element.
 - **Packaged apps see `%LOCALAPPDATA%` redirected** (MSIX, for example Claude Desktop from
   the Microsoft Store): what such a process writes there lands in the package's own
   container and Toolbag never sees it, and vice versa. The plugin therefore writes its
@@ -70,7 +74,12 @@ build 5.03.
   report the effective state. The actions refuse submeshes and need `allow_mesh` for meshes.
 - **Reading `MeshObject.mesh` and saving afterwards** writes low meshes without attribute 7
   (cage direction per vertex). Toolbag recomputes it on load; still, save before reading
-  mesh data, not after. Only `baker.replace_low` reads mesh data.
+  mesh data, not after. Only `baker.replace_low` and `baker.low_mesh_data` read mesh data.
+- **`saveScene()` with backslashes breaks Toolbag's autosave**: it then appends the whole
+  path to its autosave folder (24.09.2026). `scene.save` passes forward slashes.
+- **`importModel()` wraps the file in an `ExternalObject` named after the full path.** For
+  high and low from separate files: import both, move the meshes under a group's Low and
+  High nodes (`object.set_parent`), delete the empty roots (30.10.2026).
 - **Transforms are in scene units** (`getSceneUnitScale()` = 0.01 for a centimetre scene);
   bounds come as `[min_xyz, max_xyz]`, `None` for objects without geometry.
 - `groupObjects()` returns nothing in 5.02; the new group is found by comparing uids
@@ -130,7 +139,14 @@ build 5.03.
 - **Texture set and UDIM getters raise** (`tileMode must be Multiple mode`) unless
   `tileMode` is 1 or 2 respectively; the actions return `null` for them otherwise.
 - **Cage offsets read as a large negative sentinel while automatic**; after
-  `estimateOffset()` they still do. The actions report `null` for "automatic".
+  `estimateOffset()` they still do. The actions report `null` for "automatic". Setting the
+  sentinel (`-1000000`) back through `object.set_attributes` returns to automatic.
+- **Cage offsets are in scene units** (centimetres at unit scale 0.01). On a stack of planes
+  cutting through the high poly (track links), the alpha mask is already as full at 0.1 cm
+  as with the automatic cage (30.10.2026): the cage cannot keep the far side out there.
+- **Skew masks are not in the Python API**, only in the scene file: a `BDSOdm<i>` block (DDS,
+  L16) behind each low target's `DBakeSO` block, format in `toolbag_mcp/tbscene.py`. Written
+  that way since 24.09.2026 at 512 and 1024 and baked as expected; 2048 is unverified.
 - **The Quick Loader pairs objects by name stem** (`<stem>_low` / `<stem>_high`). A mismatch
   yields a group without High and an empty bake (16 KB PNGs). Check the groups after loading.
 - **`bake()` from Python is synchronous, never interactive, fast** (2048², 20 parts under a

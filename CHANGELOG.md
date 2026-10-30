@@ -23,8 +23,19 @@ All notable changes to toolbag-mcp. The format follows [Keep a Changelog](https:
 
 ### Added
 
+- Edge protect: `baker_skew_preview`, `baker_skew_clear_preview` and `baker_skew_apply` set
+  skew masks by edge rule (averaged only along UV seams, hard edges and bent soft edges)
+  instead of hand painting. The server computes them with numpy (new dependency) and writes
+  them into a new scene file; plugin actions `baker.low_mesh_data`, `baker.skew_preview` and
+  `baker.skew_preview_clear` supply mesh data and the preview.
 - `ToolbagClient.holding_focus()` (and `focus.holding()`): keep Toolbag in front across
   several calls and hand the focus back once at the end.
+
+### Fixed
+
+- Closing the plugin window with its title bar button crashed Toolbag: the shutdown handler
+  wrote to a label of the window being torn down.
+- `scene_save` passes paths with forward slashes; backslashes break Toolbag's autosave.
 
 ## [0.1.0] - 2026-10-29
 

@@ -100,7 +100,7 @@ Tool names as the client sees them, by family:
 | Diagnostics | `status`, `capabilities`, `preferences_get`, `preferences_set` |
 | Scene and objects | `scene_info`, `scene_new`, `scene_load`, `scene_save`, `scene_list_objects`, `scene_tree`, `scene_import_model`, `scene_export`, `scene_bounds`, `object_get`, `object_find`, `object_rename`, `object_duplicate`, `object_delete`, `object_group`, `object_set_parent`, `object_set_visible`, `object_set_transform`, `object_attributes`, `object_set_attributes`, `object_create`, `selection_get`, `selection_set`, `selection_clear`, `camera_frame`, `mesh_set_backfaces` |
 | Materials | `material_list`, `material_get`, `material_create`, `material_duplicate`, `material_delete`, `material_assign`, `material_set_group`, `material_set_subroutine`, `material_set_field`, `material_set_texture`, `material_set_cutout`, `material_import`, `material_export` |
-| Baker | `baker_list`, `baker_get`, `baker_create`, `baker_add_group`, `baker_quick_load`, `baker_set_settings`, `baker_set_maps`, `baker_set_cage`, `baker_set_visible`, `baker_isolate`, `baker_bake`, `baker_bake_psd`, `baker_bake_to`, `baker_map_path`, `baker_load_preset`, `baker_save_preset`, `baker_set_texture_set`, `baker_set_udim_tile`, `baker_replace_low` |
+| Baker | `baker_list`, `baker_get`, `baker_create`, `baker_add_group`, `baker_quick_load`, `baker_set_settings`, `baker_set_maps`, `baker_set_cage`, `baker_set_visible`, `baker_isolate`, `baker_bake`, `baker_bake_psd`, `baker_bake_to`, `baker_map_path`, `baker_load_preset`, `baker_save_preset`, `baker_set_texture_set`, `baker_set_udim_tile`, `baker_replace_low`, `baker_skew_preview`, `baker_skew_clear_preview`, `baker_skew_apply` |
 | Lights, sky, fog, cameras | `light_list`, `light_create`, `sky_get`, `sky_set`, `sky_load`, `sky_save`, `sky_set_background_image`, `sky_compute_procedural`, `fog_get`, `fog_set`, `camera_list`, `camera_get`, `camera_create`, `camera_set`, `camera_set_active`, `camera_post_effect_file` |
 | Render and timeline | `render_get`, `render_set`, `render_set_cameras`, `render_set_passes`, `render_image`, `render_images`, `render_videos`, `render_export_viewer`, `timeline_get`, `timeline_set` |
 | Python and lifecycle | `execute_python` (only while allowed in the plugin window), `toolbag_quit` |
@@ -113,6 +113,14 @@ Objects are referenced by uid or exact name; `scene_tree`, `scene_list_objects` 
 value, `object_set_attributes` changes them, nested settings included (`{"lens":
 {"dofStop": 2.8}}` on a camera). In bake scenes, toggle visibility through
 `baker_set_visible` and `baker_isolate`, never on single meshes: that corrupts bakes.
+
+**Edge protect** sets Toolbag's skew masks without painting them. The rule: full skew
+correction everywhere, averaged cage directions only in bands along UV seams and open borders,
+hard edges and soft edges that bend more than a threshold angle; each band has its own width
+in bake pixels, 0 switches it off. `baker_skew_preview` shows the masks as base colour on the
+low materials (black = averaged), `baker_skew_apply` writes them. Toolbag's Python API cannot
+set skew masks, so the server saves the scene as a new `<scene>_skew.tbscene`, writes the
+masks into that file and loads it; the original file stays untouched.
 
 From the shell: `toolbag-mcp actions` lists every action with its parameters,
 `toolbag-mcp call scene.info` runs one.
